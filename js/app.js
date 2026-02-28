@@ -20,7 +20,157 @@ const catClass = (c) => {
 const CAT_COLORS = { 'Food': '#E85D4A', 'Paper & Supplies': '#F59E0B', 'Merchandise': '#10B981', 'Beer & Wine': '#3B82F6' };
 const SUPPLIERS = ['Sysco','Gordon Foods','U S Foods','Marks','BJs','RTI','Uline','Staples','Pepsi','Cape Fish','Henny Penny','HT Berry','Lou Knife','Martinetti','Colonial','Lamarca','Northcoast','Amazon','RAW SEAFO','CCP'];
 
+// ──── User Accounts ────
+const DEFAULT_USERS = [
+  { username: 'admin', password: 'seafoodsams', displayName: 'Admin', role: 'admin' },
+  { username: 'manager', password: 'falmouth1', displayName: 'Manager', role: 'manager' },
+  { username: 'staff', password: 'inventory1', displayName: 'Staff', role: 'staff' }
+];
+
 // SVG Icons as functions
+const UserIcon = () => e('svg', {width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('path',{d:'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'}), e('circle',{cx:12,cy:7,r:4}));
+const LockIcon = () => e('svg', {width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('rect',{x:3,y:11,width:18,height:11,rx:2,ry:2}), e('path',{d:'M7 11V7a5 5 0 0 1 10 0v4'}));
+const EyeIcon = () => e('svg', {width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('path',{d:'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z'}), e('circle',{cx:12,cy:12,r:3}));
+const EyeOffIcon = () => e('svg', {width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('path',{d:'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24'}), e('line',{x1:1,y1:1,x2:23,y2:23}));
+const LogoutIcon = () => e('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('path',{d:'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4'}), e('polyline',{points:'16 17 21 12 16 7'}), e('line',{x1:21,y1:12,x2:9,y2:12}));
+const AlertCircleIcon = () => e('svg', {width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('circle',{cx:12,cy:12,r:10}), e('line',{x1:12,y1:8,x2:12,y2:12}), e('line',{x1:12,y1:16,x2:12.01,y2:16}));
+
+// ──── Login Page Component ────
+function LoginPage(props) {
+  var onLogin = props.onLogin;
+  var _username = useState('');
+  var username = _username[0]; var setUsername = _username[1];
+  var _password = useState('');
+  var password = _password[0]; var setPassword = _password[1];
+  var _error = useState('');
+  var error = _error[0]; var setError = _error[1];
+  var _loading = useState(false);
+  var loading = _loading[0]; var setLoading = _loading[1];
+  var _showPw = useState(false);
+  var showPw = _showPw[0]; var setShowPw = _showPw[1];
+
+  var handleSubmit = function(ev) {
+    if (ev) ev.preventDefault();
+    setError('');
+    if (!username.trim() || !password.trim()) {
+      setError('Please enter both username and password.');
+      return;
+    }
+    setLoading(true);
+    // Simulate auth delay
+    setTimeout(function() {
+      var user = DEFAULT_USERS.find(function(u) {
+        return u.username.toLowerCase() === username.trim().toLowerCase() && u.password === password;
+      });
+      if (user) {
+        onLogin({ username: user.username, displayName: user.displayName, role: user.role });
+      } else {
+        setError('Invalid username or password.');
+        setLoading(false);
+      }
+    }, 800);
+  };
+
+  var handleKeyDown = function(ev) {
+    if (ev.key === 'Enter') handleSubmit();
+  };
+
+  // Wave SVG path
+  var wavePath = 'M0,64 C160,100 320,20 480,64 C640,108 800,28 960,64 C1120,100 1280,20 1440,64 L1440,200 L0,200 Z';
+
+  return e('div', {className: 'login-page'},
+    // Animated waves
+    e('div', {className: 'login-waves'},
+      e('svg', {className: 'login-wave-1', viewBox: '0 0 1440 200', preserveAspectRatio: 'none'},
+        e('path', {d: wavePath, fill: 'white'})
+      ),
+      e('svg', {className: 'login-wave-2', viewBox: '0 0 1440 200', preserveAspectRatio: 'none', style: {bottom: -20}},
+        e('path', {d: 'M0,80 C200,40 400,120 600,80 C800,40 1000,120 1200,80 C1300,60 1400,100 1440,80 L1440,200 L0,200 Z', fill: 'white'})
+      )
+    ),
+
+    // Login card
+    e('div', {className: 'login-card'},
+      // Top section with branding
+      e('div', {className: 'login-card-top'},
+        e('div', {className: 'login-logo'}, '\ud83e\udde1'),
+        e('h1', null, "Seafood Sam's"),
+        e('div', {className: 'subtitle'}, 'Falmouth, MA')
+      ),
+
+      // Form body
+      e('div', {className: 'login-card-body'},
+        e('div', {className: 'login-welcome'},
+          e('h2', null, 'Welcome Back'),
+          e('p', null, 'Sign in to manage your inventory')
+        ),
+
+        // Error message
+        error && e('div', {className: 'login-error-msg'},
+          e(AlertCircleIcon),
+          error
+        ),
+
+        // Username field
+        e('div', {className: 'login-form-group'},
+          e('label', null, 'Username'),
+          e('div', {className: 'login-input-wrap'},
+            e(UserIcon),
+            e('input', {
+              className: 'login-input' + (error ? ' error' : ''),
+              type: 'text',
+              placeholder: 'Enter your username',
+              value: username,
+              onChange: function(ev) { setUsername(ev.target.value); setError(''); },
+              onKeyDown: handleKeyDown,
+              autoFocus: true,
+              autoComplete: 'username'
+            })
+          )
+        ),
+
+        // Password field
+        e('div', {className: 'login-form-group'},
+          e('label', null, 'Password'),
+          e('div', {className: 'login-input-wrap'},
+            e(LockIcon),
+            e('input', {
+              className: 'login-input' + (error ? ' error' : ''),
+              type: showPw ? 'text' : 'password',
+              placeholder: 'Enter your password',
+              value: password,
+              onChange: function(ev) { setPassword(ev.target.value); setError(''); },
+              onKeyDown: handleKeyDown,
+              autoComplete: 'current-password'
+            }),
+            e('button', {
+              className: 'password-toggle',
+              type: 'button',
+              onClick: function() { setShowPw(function(v) { return !v; }); },
+              tabIndex: -1
+            }, showPw ? e(EyeOffIcon) : e(EyeIcon))
+          )
+        ),
+
+        // Login button
+        e('button', {
+          className: 'login-btn',
+          onClick: handleSubmit,
+          disabled: loading
+        },
+          loading ? e('span', null, e('span', {className: 'spinner'}), 'Signing in...') : 'Sign In'
+        ),
+
+        // Footer
+        e('div', {className: 'login-footer'},
+          e('p', null, 'Inventory Management System'),
+          e('p', {style: {marginTop: 4, opacity: 0.7}}, '\u00a9 ' + new Date().getFullYear() + " Seafood Sam's \u2014 Falmouth, MA")
+        )
+      )
+    )
+  );
+}
+
 const SearchIcon = () => e('svg', {width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'white',strokeWidth:2}, e('circle',{cx:11,cy:11,r:8}), e('path',{d:'m21 21-4.35-4.35'}));
 const DownloadIcon = () => e('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('path',{d:'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4'}), e('polyline',{points:'7 10 12 15 17 10'}), e('line',{x1:12,y1:15,x2:12,y2:3}));
 const PlusIcon = () => e('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2.5}, e('line',{x1:12,y1:5,x2:12,y2:19}), e('line',{x1:5,y1:12,x2:19,y2:12}));
@@ -120,6 +270,29 @@ function FoodCostCalc(props) {
 
 // ──── Main App ────
 function App() {
+  var _user = useState(null);
+  var currentUser = _user[0]; var setCurrentUser = _user[1];
+
+  var handleLogin = function(user) {
+    setCurrentUser(user);
+  };
+
+  var handleLogout = function() {
+    setCurrentUser(null);
+  };
+
+  // Show login page if not authenticated
+  if (!currentUser) {
+    return e(LoginPage, { onLogin: handleLogin });
+  }
+
+  // ──── Main App (authenticated) ────
+  return e(MainApp, { currentUser: currentUser, onLogout: handleLogout });
+}
+
+function MainApp(props) {
+  var currentUser = props.currentUser;
+  var onLogout = props.onLogout;
   const [items, setItems] = useState(window.INITIAL_DATA || []);
   const [page, setPage] = useState('track');
   const [search, setSearch] = useState('');
@@ -287,7 +460,12 @@ function App() {
         ),
         e('div', {className:'header-actions'},
           e('button', {className:'btn btn-ghost', onClick:exportCSV}, e(DownloadIcon), ' Export'),
-          e('button', {className:'btn btn-primary', onClick:function(){setModal('add');}}, e(PlusIcon), ' Add Item')
+          e('button', {className:'btn btn-primary', onClick:function(){setModal('add');}}, e(PlusIcon), ' Add Item'),
+          e('div', {className:'user-badge'},
+            e('div', {className:'user-avatar'}, currentUser.displayName.charAt(0).toUpperCase()),
+            e('span', null, currentUser.displayName),
+            e('button', {className:'logout-btn', onClick:onLogout, title:'Sign out'}, e(LogoutIcon))
+          )
         )
       ),
       e('nav', {className:'nav-tabs'},
