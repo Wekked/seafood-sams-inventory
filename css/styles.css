@@ -1134,3 +1134,152 @@
   .logout-btn:hover {
     color: var(--coral-light);
   }
+
+  /* ──── Drag & Drop Reorder ──── */
+  .reorder-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    background: #FFFBEB;
+    border-bottom: 1px solid #FDE68A;
+    border-top: 1px solid #FDE68A;
+  }
+
+  .reorder-bar .reorder-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #92400E;
+    font-weight: 500;
+  }
+
+  .reorder-bar .reorder-info svg {
+    flex-shrink: 0;
+  }
+
+  .reorder-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn-reorder {
+    padding: 7px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    border: 1.5px solid var(--gray-200);
+    background: white;
+    color: var(--gray-600);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.2s;
+  }
+
+  .btn-reorder:hover {
+    border-color: var(--ocean-light);
+    color: var(--ocean-mid);
+  }
+
+  .btn-reorder.active {
+    background: var(--warning);
+    color: white;
+    border-color: var(--warning);
+  }
+
+  .btn-reorder.active:hover {
+    background: #D97706;
+    border-color: #D97706;
+  }
+
+  /* Drag handle */
+  .drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    cursor: grab;
+    color: var(--gray-300);
+    border-radius: 4px;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .drag-handle:hover {
+    color: var(--gray-500);
+    background: var(--gray-100);
+  }
+
+  .drag-handle:active {
+    cursor: grabbing;
+  }
+
+  /* Row drag states */
+  tr.dragging {
+    opacity: 0.4;
+    background: var(--gray-100) !important;
+  }
+
+  tr.drag-over-above {
+    box-shadow: inset 0 2px 0 0 var(--seafoam);
+  }
+
+  tr.drag-over-below {
+    box-shadow: inset 0 -2px 0 0 var(--seafoam);
+  }
+
+  tr.drag-target td:first-child {
+    position: relative;
+  }
+
+  /* Row number in reorder mode */
+  .row-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: var(--gray-100);
+    color: var(--gray-400);
+    font-size: 10px;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-right: 4px;
+  }
+
+  /* Reorder mode indicator on header */
+  .th-reorder {
+    width: 44px;
+    text-align: center;
+  }
+
+  /* Highlight when custom order is active */
+  .custom-order-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #FEF3C7;
+    color: #92400E;
+    font-size: 10px;
+    font-weight: 600;
+    margin-left: 8px;
+    letter-spacing: 0.3px;
+  }
+
+  /* Sort disabled indicator */
+  th.sort-disabled {
+    cursor: default !important;
+    color: var(--gray-300) !important;
+  }
+
+  th.sort-disabled:hover {
+    color: var(--gray-300) !important;
+  }
