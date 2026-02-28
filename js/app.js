@@ -93,7 +93,7 @@ function LoginPage(props) {
     e('div', {className: 'login-card'},
       // Top section with branding
       e('div', {className: 'login-card-top'},
-        e('div', {className: 'login-logo'}, '\ud83e\udde1'),
+        e('div', {className: 'login-logo'}, '🦞'),
         e('h1', null, "Seafood Sam's"),
         e('div', {className: 'subtitle'}, 'Falmouth, MA')
       ),
@@ -448,7 +448,7 @@ function MainApp(props) {
     e('header', {className:'app-header'},
       e('div', {className:'header-main'},
         e('div', {className:'brand'},
-          e('div', {className:'brand-icon'}, '\ud83e\udde1'),
+          e('div', {className:'brand-icon'}, '🦞'),
           e('div', {className:'brand-text'},
             e('h1', null, "Seafood Sam's"),
             e('span', null, 'Falmouth, MA \u2014 Inventory')
