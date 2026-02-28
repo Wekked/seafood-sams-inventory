@@ -176,6 +176,10 @@ const DownloadIcon = () => e('svg', {width:14,height:14,viewBox:'0 0 24 24',fill
 const PlusIcon = () => e('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2.5}, e('line',{x1:12,y1:5,x2:12,y2:19}), e('line',{x1:5,y1:12,x2:19,y2:12}));
 const EditIcon = () => e('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('path',{d:'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7'}), e('path',{d:'M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z'}));
 const TrashIcon = () => e('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('polyline',{points:'3 6 5 6 21 6'}), e('path',{d:'M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'}));
+const DragIcon = () => e('svg', {width:16,height:16,viewBox:'0 0 24 24',fill:'currentColor'}, e('circle',{cx:9,cy:5,r:1.5}), e('circle',{cx:15,cy:5,r:1.5}), e('circle',{cx:9,cy:12,r:1.5}), e('circle',{cx:15,cy:12,r:1.5}), e('circle',{cx:9,cy:19,r:1.5}), e('circle',{cx:15,cy:19,r:1.5}));
+const ReorderIcon = () => e('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('line',{x1:4,y1:6,x2:20,y2:6}), e('line',{x1:4,y1:12,x2:20,y2:12}), e('line',{x1:4,y1:18,x2:20,y2:18}), e('polyline',{points:'1 4 4 1 7 4'}), e('polyline',{points:'1 20 4 23 7 20'}));
+const CheckCircleIcon = () => e('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('path',{d:'M22 11.08V12a10 10 0 1 1-5.93-9.14'}), e('polyline',{points:'22 4 12 14.01 9 11.01'}));
+const InfoIcon = () => e('svg', {width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('circle',{cx:12,cy:12,r:10}), e('line',{x1:12,y1:16,x2:12,y2:12}), e('line',{x1:12,y1:8,x2:12.01,y2:8}));
 
 // Pie Chart
 function PieChart(props) {
@@ -306,6 +310,9 @@ function MainApp(props) {
   const [toast, setToast] = useState(null);
   const [changes, setChanges] = useState({});
   const [newItem, setNewItem] = useState({name:'',itemNumber:'',category:'Food',location:'Cellar',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
+  const [reorderMode, setReorderMode] = useState(false);
+  const [customOrders, setCustomOrders] = useState({});
+  const [dragState, setDragState] = useState({draggingId:null, overId:null, overPos:null});
   const perPage = 50;
 
   const locations = useMemo(function() {
@@ -332,6 +339,11 @@ function MainApp(props) {
   const allLocations = useMemo(function() { return [...new Set(items.map(function(i){return i.location;}))].sort(); }, [items]);
   const allCategories = useMemo(function() { return [...new Set(items.map(function(i){return i.category;}))].sort(); }, [items]);
 
+  // Is custom order active for the current location filter?
+  var isCustomOrderActive = locationFilter !== 'All' && customOrders[locationFilter] && customOrders[locationFilter].length > 0;
+  // Can we enter reorder mode? Only when a specific location is selected and no search/category filter
+  var canReorder = locationFilter !== 'All' && !search && categoryFilter === 'All';
+
   const filtered = useMemo(function() {
     var result = items.slice();
     if (search) {
@@ -342,18 +354,32 @@ function MainApp(props) {
     }
     if (locationFilter !== 'All') result = result.filter(function(i){return i.location === locationFilter;});
     if (categoryFilter !== 'All') result = result.filter(function(i){return i.category === categoryFilter;});
-    result.sort(function(a, b) {
-      var va = a[sortField], vb = b[sortField];
-      if (typeof va === 'string') { va = va.toLowerCase(); vb = vb.toLowerCase(); }
-      if (va < vb) return sortDir === 'asc' ? -1 : 1;
-      if (va > vb) return sortDir === 'asc' ? 1 : -1;
-      return 0;
-    });
+
+    // If custom order exists for this location and we're not searching, use it
+    var locOrder = customOrders[locationFilter];
+    if (locationFilter !== 'All' && locOrder && locOrder.length > 0 && !search && categoryFilter === 'All') {
+      // Sort by custom order; items not in the order go to the end
+      var orderMap = {};
+      locOrder.forEach(function(id, idx) { orderMap[id] = idx; });
+      result.sort(function(a, b) {
+        var oa = orderMap[a.id] !== undefined ? orderMap[a.id] : 99999;
+        var ob = orderMap[b.id] !== undefined ? orderMap[b.id] : 99999;
+        return oa - ob;
+      });
+    } else {
+      result.sort(function(a, b) {
+        var va = a[sortField], vb = b[sortField];
+        if (typeof va === 'string') { va = va.toLowerCase(); vb = vb.toLowerCase(); }
+        if (va < vb) return sortDir === 'asc' ? -1 : 1;
+        if (va > vb) return sortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
     return result;
-  }, [items, search, locationFilter, categoryFilter, sortField, sortDir]);
+  }, [items, search, locationFilter, categoryFilter, sortField, sortDir, customOrders]);
 
   const pageCount = Math.ceil(filtered.length / perPage);
-  const pageItems = filtered.slice((tablePage - 1) * perPage, tablePage * perPage);
+  const pageItems = reorderMode ? filtered : filtered.slice((tablePage - 1) * perPage, tablePage * perPage);
   const hasChanges = Object.keys(changes).length > 0;
 
   var handleSort = function(field) {
@@ -386,6 +412,101 @@ function MainApp(props) {
   };
 
   var discardChanges = function() { setChanges({}); };
+
+  // ──── Drag & Drop Reorder ────
+  var handleDragStart = function(itemId, ev) {
+    ev.dataTransfer.effectAllowed = 'move';
+    ev.dataTransfer.setData('text/plain', itemId);
+    setDragState(function(s) { return Object.assign({}, s, {draggingId: itemId}); });
+  };
+
+  var handleDragOver = function(itemId, ev) {
+    ev.preventDefault();
+    ev.dataTransfer.dropEffect = 'move';
+    // Determine if cursor is in top or bottom half of row
+    var rect = ev.currentTarget.getBoundingClientRect();
+    var midY = rect.top + rect.height / 2;
+    var pos = ev.clientY < midY ? 'above' : 'below';
+    setDragState(function(s) { return Object.assign({}, s, {overId: itemId, overPos: pos}); });
+  };
+
+  var handleDragLeave = function(itemId, ev) {
+    // Only clear if actually leaving the row (not entering a child)
+    if (!ev.currentTarget.contains(ev.relatedTarget)) {
+      setDragState(function(s) {
+        if (s.overId === itemId) return Object.assign({}, s, {overId: null, overPos: null});
+        return s;
+      });
+    }
+  };
+
+  var handleDrop = function(targetId, ev) {
+    ev.preventDefault();
+    var sourceId = parseInt(ev.dataTransfer.getData('text/plain'));
+    if (!sourceId || sourceId === targetId) {
+      setDragState({draggingId:null, overId:null, overPos:null});
+      return;
+    }
+
+    // Build the new order for this location
+    var currentIds = filtered.map(function(i) { return i.id; });
+    var sourceIdx = currentIds.indexOf(sourceId);
+    var targetIdx = currentIds.indexOf(targetId);
+    if (sourceIdx === -1 || targetIdx === -1) {
+      setDragState({draggingId:null, overId:null, overPos:null});
+      return;
+    }
+
+    // Remove source from its position
+    currentIds.splice(sourceIdx, 1);
+    // Find target position after removal
+    var newTargetIdx = currentIds.indexOf(targetId);
+    // Insert based on cursor position
+    if (dragState.overPos === 'below') {
+      currentIds.splice(newTargetIdx + 1, 0, sourceId);
+    } else {
+      currentIds.splice(newTargetIdx, 0, sourceId);
+    }
+
+    // Save custom order for this location
+    setCustomOrders(function(prev) {
+      var updated = Object.assign({}, prev);
+      updated[locationFilter] = currentIds;
+      return updated;
+    });
+
+    setDragState({draggingId:null, overId:null, overPos:null});
+    setToast({message:'Item order updated', type:'success'});
+  };
+
+  var handleDragEnd = function() {
+    setDragState({draggingId:null, overId:null, overPos:null});
+  };
+
+  var toggleReorderMode = function() {
+    if (!reorderMode && locationFilter !== 'All') {
+      // Entering reorder mode — initialize custom order from current display if none exists
+      if (!customOrders[locationFilter] || customOrders[locationFilter].length === 0) {
+        var currentIds = filtered.map(function(i) { return i.id; });
+        setCustomOrders(function(prev) {
+          var updated = Object.assign({}, prev);
+          updated[locationFilter] = currentIds;
+          return updated;
+        });
+      }
+    }
+    setReorderMode(function(v) { return !v; });
+  };
+
+  var clearCustomOrder = function() {
+    setCustomOrders(function(prev) {
+      var updated = Object.assign({}, prev);
+      delete updated[locationFilter];
+      return updated;
+    });
+    setReorderMode(false);
+    setToast({message:'Custom order cleared for ' + locationFilter, type:'warning'});
+  };
 
   var addItem = function() {
     var item = Object.assign({id:Math.max.apply(null,items.map(function(i){return i.id;}))+1}, newItem, {
@@ -505,11 +626,11 @@ function MainApp(props) {
         ),
         // Location chips
         e('div', {className:'location-bar'},
-          e('button', {className:'loc-chip '+(locationFilter==='All'?'active':''), onClick:function(){setLocationFilter('All');setTablePage(1);}},
+          e('button', {className:'loc-chip '+(locationFilter==='All'?'active':''), onClick:function(){setLocationFilter('All');setTablePage(1);setReorderMode(false);}},
             'All Locations ', e('span', {className:'count'}, items.length)
           ),
           allLocations.map(function(loc) {
-            return e('button', {key:loc, className:'loc-chip '+(locationFilter===loc?'active':''), onClick:function(){setLocationFilter(loc);setTablePage(1);}},
+            return e('button', {key:loc, className:'loc-chip '+(locationFilter===loc?'active':''), onClick:function(){setLocationFilter(loc);setTablePage(1);setReorderMode(false);}},
               loc, ' ', e('span', {className:'count'}, (locations[loc]||{}).count||0)
             );
           })
@@ -517,25 +638,46 @@ function MainApp(props) {
         // Table
         e('div', {className:'table-container'},
           e('div', {className:'table-header'},
-            e('h2', null, 'Inventory Items ('+filtered.length+')'),
+            e('h2', null, 'Inventory Items ('+filtered.length+')',
+              isCustomOrderActive && !reorderMode ? e('span', {className:'custom-order-badge'}, '\u2195 Custom Order') : null
+            ),
             e('div', {className:'filter-row'},
+              canReorder && e('button', {
+                className:'btn-reorder '+(reorderMode?'active':''),
+                onClick: toggleReorderMode
+              }, e(ReorderIcon), reorderMode ? 'Done Reordering' : 'Reorder Items'),
+              isCustomOrderActive && !reorderMode && e('button', {
+                className:'btn-reorder',
+                onClick: clearCustomOrder,
+                title: 'Reset to alphabetical order'
+              }, '\u00d7 Reset Order'),
               e('select', {className:'filter-select', value:categoryFilter, onChange:function(ev){setCategoryFilter(ev.target.value);setTablePage(1);}},
                 e('option', {value:'All'}, 'All Categories'),
                 allCategories.map(function(c){return e('option', {key:c, value:c}, c);})
               )
             )
           ),
+          reorderMode && e('div', {className:'reorder-bar'},
+            e('div', {className:'reorder-info'},
+              e(InfoIcon),
+              'Drag items to match your physical walkthrough order for counting. This order is saved per location.'
+            ),
+            e('div', {className:'reorder-actions'},
+              e('button', {className:'btn btn-sm btn-primary', onClick: function(){ setReorderMode(false); }}, e(CheckCircleIcon), ' Done')
+            )
+          ),
           e('div', {style:{overflowX:'auto'}},
             e('table', null,
               e('thead', null,
                 e('tr', null,
-                  e('th', {onClick:function(){handleSort('name');}}, 'Item'+sortIcon('name')),
-                  e('th', {onClick:function(){handleSort('category');}}, 'Category'+sortIcon('category')),
-                  e('th', {onClick:function(){handleSort('location');}}, 'Location'+sortIcon('location')),
-                  e('th', {onClick:function(){handleSort('quantity');}}, 'Qty on Hand'+sortIcon('quantity')),
-                  e('th', {onClick:function(){handleSort('price');}}, 'Price'+sortIcon('price')),
-                  e('th', {onClick:function(){handleSort('totalValue');}}, 'Value'+sortIcon('totalValue')),
-                  e('th', {onClick:function(){handleSort('lastCounted');}}, 'Last Counted'+sortIcon('lastCounted')),
+                  reorderMode && e('th', {className:'th-reorder'}, '#'),
+                  e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('name');}}, 'Item'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('name'))),
+                  e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('category');}}, 'Category'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('category'))),
+                  e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('location');}}, 'Location'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('location'))),
+                  e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('quantity');}}, 'Qty on Hand'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('quantity'))),
+                  e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('price');}}, 'Price'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('price'))),
+                  e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('totalValue');}}, 'Value'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('totalValue'))),
+                  e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('lastCounted');}}, 'Last Counted'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('lastCounted'))),
                   e('th', {style:{width:60}})
                 )
               ),
@@ -543,10 +685,32 @@ function MainApp(props) {
                 pageItems.length === 0 ?
                   e('tr', null, e('td', {colSpan:8}, e('div', {className:'empty-state'}, e('h3', null, 'No items found'), e('p', null, 'Try adjusting your search or filters'))))
                 :
-                pageItems.map(function(item) {
+                pageItems.map(function(item, rowIndex) {
                   var currentQty = changes[item.id] !== undefined ? changes[item.id] : item.quantity;
                   var currentVal = changes[item.id] !== undefined ? Math.round(changes[item.id]*item.price*100)/100 : item.totalValue;
-                  return e('tr', {key:item.id},
+                  var isDragging = dragState.draggingId === item.id;
+                  var isOver = dragState.overId === item.id;
+                  var dragClass = isDragging ? ' dragging' : '';
+                  if (isOver && dragState.overPos === 'above') dragClass += ' drag-over-above';
+                  if (isOver && dragState.overPos === 'below') dragClass += ' drag-over-below';
+
+                  var rowProps = {key:item.id, className: dragClass.trim()};
+                  if (reorderMode) {
+                    rowProps.draggable = true;
+                    rowProps.onDragStart = function(ev) { handleDragStart(item.id, ev); };
+                    rowProps.onDragOver = function(ev) { handleDragOver(item.id, ev); };
+                    rowProps.onDragLeave = function(ev) { handleDragLeave(item.id, ev); };
+                    rowProps.onDrop = function(ev) { handleDrop(item.id, ev); };
+                    rowProps.onDragEnd = handleDragEnd;
+                  }
+
+                  return e('tr', rowProps,
+                    reorderMode && e('td', {style:{textAlign:'center', padding:'12px 6px'}},
+                      e('div', {style:{display:'flex', alignItems:'center', gap:4, justifyContent:'center'}},
+                        e('span', {className:'row-number'}, rowIndex + 1),
+                        e('div', {className:'drag-handle'}, e(DragIcon))
+                      )
+                    ),
                     e('td', null,
                       e('div', {className:'item-name'}, item.name),
                       e('div', {className:'item-id'}, item.itemNumber)
@@ -573,7 +737,7 @@ function MainApp(props) {
               )
             )
           ),
-          pageCount > 1 && e('div', {className:'pagination'},
+          !reorderMode && pageCount > 1 && e('div', {className:'pagination'},
             e('span', null, 'Showing '+((tablePage-1)*perPage+1)+'\u2013'+Math.min(tablePage*perPage, filtered.length)+' of '+filtered.length),
             e('div', {className:'page-btns'},
               e('button', {className:'page-btn', disabled:tablePage===1, onClick:function(){setTablePage(function(p){return p-1;});}}, '\u2190 Prev'),
