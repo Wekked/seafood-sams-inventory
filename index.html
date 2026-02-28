@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seafood Sam's — Inventory Tracker</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Inventory data is loaded first, then the app -->
+  <script>
+    // Load inventory data from JSON file, then boot the app
+    fetch('data/inventory.json')
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        window.INITIAL_DATA = data;
+        var script = document.createElement('script');
+        script.src = 'js/app.js';
+        document.body.appendChild(script);
+      })
+      .catch(function(err) {
+        console.error('Failed to load inventory data:', err);
+        document.getElementById('root').innerHTML =
+          '<div style="padding:40px;text-align:center;font-family:sans-serif;">' +
+          '<h2>Failed to load inventory data</h2>' +
+          '<p>Make sure you are serving this from a web server (not opening the file directly).</p>' +
+          '<p style="color:#999;font-size:13px;">Run: <code>npx serve</code> or <code>python3 -m http.server</code> from the project folder.</p>' +
+          '</div>';
+      });
+  </script>
+</body>
+</html>
