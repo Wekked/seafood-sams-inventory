@@ -15,26 +15,7 @@
 <body>
   <div id="root"></div>
 
-  <!-- Inventory data is loaded first, then the app -->
-  <script>
-    // Load inventory data from JSON file, then boot the app
-    fetch('data/inventory.json')
-      .then(function(res) { return res.json(); })
-      .then(function(data) {
-        window.INITIAL_DATA = data;
-        var script = document.createElement('script');
-        script.src = 'js/app.js';
-        document.body.appendChild(script);
-      })
-      .catch(function(err) {
-        console.error('Failed to load inventory data:', err);
-        document.getElementById('root').innerHTML =
-          '<div style="padding:40px;text-align:center;font-family:sans-serif;">' +
-          '<h2>Failed to load inventory data</h2>' +
-          '<p>Make sure you are serving this from a web server (not opening the file directly).</p>' +
-          '<p style="color:#999;font-size:13px;">Run: <code>npx serve</code> or <code>python3 -m http.server</code> from the project folder.</p>' +
-          '</div>';
-      });
-  </script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
