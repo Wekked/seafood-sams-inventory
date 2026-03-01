@@ -6,7 +6,7 @@
 //        Find them at: Supabase Dashboard → Settings → API
 //
 var SUPABASE_URL = 'https://mihsoeydazkqhcwftnsl.supabase.co';
-var SUPABASE_ANON_KEY = 'sb_publishable_hDVT8rvLMijlyPxi_8Ywag_AF7GIW2T';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1paHNvZXlkYXprcWhjd2Z0bnNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMTYyMjQsImV4cCI6MjA4Nzg5MjIyNH0.CGpiRk7lALi3ppAvWxMfyaP8LYVL1GsWtQB_ouEz6co';
 
 // Initialize client (loaded from CDN in index.html)
 // Replace the old Line 12 with this:

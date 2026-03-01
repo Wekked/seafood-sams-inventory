@@ -4,19 +4,37 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Seafood Sam's — Inventory Tracker</title>
-  
+
+  <!-- React -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-  
+
+  <!-- Supabase (must load before supabase-client.js) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  
+
+  <!-- Fonts & Styles -->
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Playfair+Display:wght@700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
   <div id="root"></div>
 
+  <!-- 1. Supabase client + connection config -->
   <script src="js/supabase-client.js"></script>
-  <script src="js/app.js"></script>
+
+  <!-- 2. Load local JSON as fallback, then boot app -->
+  <script>
+    // The app tries Supabase first. If that fails (offline, misconfigured, slow),
+    // it falls back to this local JSON so the app is never completely blank.
+    fetch('data/inventory.json')
+      .then(function(res) { return res.json(); })
+      .then(function(data) { window.INITIAL_DATA = data; })
+      .catch(function() { window.INITIAL_DATA = []; })
+      .finally(function() {
+        var script = document.createElement('script');
+        script.src = 'js/app.js';
+        document.body.appendChild(script);
+      });
+  </script>
 </body>
 </html>
