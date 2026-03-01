@@ -2,46 +2,41 @@
 // Supabase Client — Seafood Sam's Inventory Tracker
 // ════════════════════════════════════════════════════════════════
 //
-// SETUP: Replace these with your actual Supabase project values.
-//        Find them at: Supabase Dashboard → Settings → API
+// SETUP: Replace SUPABASE_URL and SUPABASE_ANON_KEY with your values.
+//        Find them at: Supabase Dashboard → Settings → API Keys
 //
 var SUPABASE_URL = 'https://mihsoeydazkqhcwftnsl.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1paHNvZXlkYXprcWhjd2Z0bnNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIzMTYyMjQsImV4cCI6MjA4Nzg5MjIyNH0.CGpiRk7lALi3ppAvWxMfyaP8LYVL1GsWtQB_ouEz6co';
 
-// Initialize client (loaded from CDN in index.html)
-// Replace the old Line 12 with this:
+// Initialize Supabase client with session persistence
 var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    storageKey: 'seafoodsams-auth'
   }
 });
 
 // ──── Auth Functions ────
 
 var SupaAuth = {
-  // Sign in with email/password
   signIn: function(email, password) {
     return supabase.auth.signInWithPassword({ email: email, password: password });
   },
 
-  // Sign out
   signOut: function() {
     return supabase.auth.signOut();
   },
 
-  // Get current session
   getSession: function() {
     return supabase.auth.getSession();
   },
 
-  // Listen for auth changes (login, logout, token refresh)
   onAuthChange: function(callback) {
     return supabase.auth.onAuthStateChange(callback);
   },
 
-  // Get the user's profile (display name, role) from the profiles table
   getProfile: function(userId) {
     return supabase.from('profiles').select('*').eq('id', userId).single();
   }
@@ -52,8 +47,6 @@ var SupaAuth = {
 
 var SupaDB = {
 
-  // ──── LOAD ALL ITEMS ────
-  // Fetches the full inventory. Called on app boot.
   loadItems: function() {
     return supabase
       .from('items')
@@ -61,9 +54,6 @@ var SupaDB = {
       .order('name', { ascending: true });
   },
 
-  // ──── SAVE QUANTITY CHANGES (batch) ────
-  // Called when user clicks "Save All Changes" in the track view.
-  // changes = { itemId: newQuantity, itemId: newQuantity, ... }
   saveQuantityChanges: function(changes, items) {
     var now = new Date().toISOString().split('T')[0];
     var updates = Object.keys(changes).map(function(idStr) {
@@ -79,13 +69,11 @@ var SupaDB = {
       };
     });
 
-    // Supabase upsert updates existing rows matched by primary key
     return supabase
       .from('items')
       .upsert(updates, { onConflict: 'id' });
   },
 
-  // ──── ADD NEW ITEM ────
   addItem: function(item) {
     return supabase
       .from('items')
@@ -105,7 +93,6 @@ var SupaDB = {
       .single();
   },
 
-  // ──── UPDATE ITEM (full edit) ────
   updateItem: function(item) {
     var qty = parseFloat(item.quantity) || 0;
     var price = parseFloat(item.price) || 0;
@@ -125,7 +112,6 @@ var SupaDB = {
       .eq('id', item.id);
   },
 
-  // ──── DELETE ITEM ────
   deleteItem: function(id) {
     return supabase
       .from('items')
@@ -133,25 +119,20 @@ var SupaDB = {
       .eq('id', id);
   },
 
-  // ──── CLOSE INVENTORY PERIOD ────
-  // Sets last_counted to today for all items
   closeInventory: function() {
     var now = new Date().toISOString().split('T')[0];
     return supabase
       .from('items')
       .update({ last_counted: now })
-      .neq('id', 0);   // matches all rows (no row has id=0)
+      .neq('id', 0);
   },
 
-  // ──── CUSTOM SORT ORDERS ────
-  // Load all saved location orders
   loadCustomOrders: function() {
     return supabase
       .from('location_sort_orders')
       .select('*');
   },
 
-  // Save a custom order for a specific location
   saveCustomOrder: function(location, itemIds) {
     return supabase
       .from('location_sort_orders')
@@ -161,7 +142,6 @@ var SupaDB = {
       );
   },
 
-  // Delete a custom order for a location (reset to default)
   deleteCustomOrder: function(location) {
     return supabase
       .from('location_sort_orders')
@@ -169,8 +149,6 @@ var SupaDB = {
       .eq('location_name', location);
   },
 
-  // ──── REALTIME SUBSCRIPTION ────
-  // Subscribe to item changes so multiple devices stay in sync
   subscribeToItems: function(onInsert, onUpdate, onDelete) {
     return supabase
       .channel('items-changes')
@@ -192,7 +170,6 @@ var SupaDB = {
 };
 
 // ──── Helper: Convert DB row → App item format ────
-// Supabase uses snake_case, our app uses camelCase
 function dbToItem(row) {
   return {
     id:           row.id,

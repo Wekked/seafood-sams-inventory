@@ -31,8 +31,9 @@ var DEFAULT_USERS = [
 
 // Check if Supabase is configured (not still using placeholder)
 var SUPABASE_CONFIGURED = typeof window.SupaDB !== 'undefined' &&
-  typeof SUPABASE_URL !== 'undefined' &&
-  SUPABASE_URL.indexOf('YOUR_PROJECT_ID') === -1;
+  typeof SUPABASE_URL === 'string' &&
+  SUPABASE_URL.indexOf('YOUR_PROJECT_ID') === -1 &&
+  SUPABASE_URL.indexOf('supabase.co') !== -1;
 
 // SVG Icons as functions
 const UserIcon = () => e('svg', {width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('path',{d:'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'}), e('circle',{cx:12,cy:7,r:4}));
