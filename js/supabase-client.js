@@ -9,7 +9,14 @@ var SUPABASE_URL = 'https://mihsoeydazkqhcwftnsl.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_hDVT8rvLMijlyPxi_8Ywag_AF7GIW2T';
 
 // Initialize client (loaded from CDN in index.html)
-var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Replace the old Line 12 with this:
+var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
+  }
+});
 
 // ──── Auth Functions ────
 
