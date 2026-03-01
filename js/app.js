@@ -384,7 +384,7 @@ function MainApp(props) {
   var onLogout = props.onLogout;
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [syncStatus, setSyncStatus] = useState('loading'); // 'loading', 'synced', 'offline', 'error'
+  const [syncStatus, setSyncStatus] = useState('loading'); // 'loading', 'synced', 'offline', 'error', 'pending'
   const [page, setPage] = useState('track');
   const [search, setSearch] = useState('');
   const [locationFilter, setLocationFilter] = useState('All');
@@ -400,7 +400,60 @@ function MainApp(props) {
   const [reorderMode, setReorderMode] = useState(false);
   const [customOrders, setCustomOrders] = useState({});
   const [dragState, setDragState] = useState({draggingId:null, overId:null, overPos:null});
+  const [pendingCount, setPendingCount] = useState(0);
   const perPage = 50;
+
+  // ──── Online/Offline detection & auto-sync ────
+  useEffect(function() {
+    if (!SUPABASE_CONFIGURED) return;
+
+    // Initialize pending count from queue
+    setPendingCount(OfflineQueue.count());
+
+    // Listen for queue changes
+    var unsubQueue = OfflineQueue.onChange(function(count) {
+      setPendingCount(count);
+      if (count > 0) {
+        setSyncStatus('pending');
+      }
+    });
+
+    // When browser comes back online, sync the queue
+    function handleOnline() {
+      console.log('[Offline] Back online — syncing queued changes...');
+      setSyncStatus('loading');
+      OfflineQueue.sync().then(function(result) {
+        if (result.synced > 0) {
+          setToast({message: result.synced + ' queued change(s) synced!', type:'success'});
+          // Reload fresh data from Supabase
+          SupaDB.loadItems().then(function(r) {
+            if (r.data) setItems(r.data.map(dbToItem));
+          });
+        }
+        setSyncStatus(OfflineQueue.count() > 0 ? 'pending' : 'synced');
+      });
+    }
+
+    function handleOffline() {
+      console.log('[Offline] Connection lost');
+      setSyncStatus('offline');
+      setToast({message: 'You\'re offline — changes will be saved and synced later', type:'warning'});
+    }
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Check if we have pending items from a previous session
+    if (OfflineQueue.count() > 0 && navigator.onLine) {
+      handleOnline();
+    }
+
+    return function() {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      unsubQueue();
+    };
+  }, []);
 
   // ──── Load data from Supabase on mount ────
   useEffect(function() {
@@ -574,7 +627,10 @@ function MainApp(props) {
     // Persist to Supabase
     if (SUPABASE_CONFIGURED) {
       SupaDB.saveQuantityChanges(changes, items).then(function(result) {
-        if (result.error) {
+        if (result._queued) {
+          setSyncStatus('pending');
+          setToast({message:count+' item(s) saved locally — will sync when online', type:'warning'});
+        } else if (result.error) {
           console.error('Save failed:', result.error);
           setToast({message:'Save failed — changes may not sync', type:'warning'});
         } else {
@@ -745,16 +801,29 @@ function MainApp(props) {
   var addItem = function() {
     if (SUPABASE_CONFIGURED) {
       SupaDB.addItem(newItem).then(function(result) {
-        if (result.error) {
+        if (result._queued) {
+          // Offline — add locally with temp ID
+          var tempItem = Object.assign({id: Date.now()}, newItem, {
+            quantity:parseFloat(newItem.quantity)||0, price:parseFloat(newItem.price)||0,
+            totalValue:(parseFloat(newItem.quantity)||0)*(parseFloat(newItem.price)||0),
+            lastCounted:new Date().toISOString().split('T')[0]
+          });
+          setItems(function(prev) { return prev.concat([tempItem]); });
+          setModal(null);
+          setNewItem({name:'',itemNumber:'',category:'Food',location:'Cellar',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
+          setSyncStatus('pending');
+          setToast({message:'"'+newItem.name+'" added locally — will sync when online', type:'warning'});
+        } else if (result.error) {
           console.error('Add failed:', result.error);
           setToast({message:'Failed to add item', type:'warning'});
           return;
+        } else {
+          var savedItem = dbToItem(result.data);
+          setItems(function(prev) { return prev.concat([savedItem]); });
+          setModal(null);
+          setNewItem({name:'',itemNumber:'',category:'Food',location:'Cellar',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
+          setToast({message:'"'+savedItem.name+'" added & synced', type:'success'});
         }
-        var savedItem = dbToItem(result.data);
-        setItems(function(prev) { return prev.concat([savedItem]); });
-        setModal(null);
-        setNewItem({name:'',itemNumber:'',category:'Food',location:'Cellar',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
-        setToast({message:'"'+savedItem.name+'" added & synced', type:'success'});
       });
     } else {
       // Local fallback
@@ -783,7 +852,10 @@ function MainApp(props) {
 
     if (SUPABASE_CONFIGURED) {
       SupaDB.updateItem(updatedItem).then(function(result) {
-        if (result.error) {
+        if (result._queued) {
+          setSyncStatus('pending');
+          setToast({message:'Item saved locally — will sync when online', type:'warning'});
+        } else if (result.error) {
           console.error('Update failed:', result.error);
           setToast({message:'Update failed — may not sync', type:'warning'});
         } else {
@@ -804,7 +876,10 @@ function MainApp(props) {
 
     if (SUPABASE_CONFIGURED) {
       SupaDB.deleteItem(id).then(function(result) {
-        if (result.error) {
+        if (result._queued) {
+          setSyncStatus('pending');
+          setToast({message:'"'+(item?item.name:'')+'" deleted locally — will sync when online', type:'warning'});
+        } else if (result.error) {
           console.error('Delete failed:', result.error);
           setToast({message:'Delete failed — may not sync', type:'warning'});
         } else {
@@ -824,7 +899,10 @@ function MainApp(props) {
 
     if (SUPABASE_CONFIGURED) {
       SupaDB.closeInventory().then(function(result) {
-        if (result.error) {
+        if (result._queued) {
+          setSyncStatus('pending');
+          setToast({message:'Inventory closed locally — will sync when online', type:'warning'});
+        } else if (result.error) {
           console.error('Close inventory failed:', result.error);
           setToast({message:'Close failed — may not sync', type:'warning'});
         } else {
@@ -872,7 +950,10 @@ function MainApp(props) {
           e('div', {className:'header-actions'},
           e('div', {className:'sync-badge '+syncStatus},
             e('div', {className:'sync-dot'}),
-            syncStatus === 'synced' ? 'Synced' : syncStatus === 'offline' ? 'Local' : syncStatus === 'error' ? 'Error' : 'Loading'
+            syncStatus === 'synced' ? 'Synced' :
+            syncStatus === 'pending' ? pendingCount + ' Pending' :
+            syncStatus === 'offline' ? (pendingCount > 0 ? 'Offline (' + pendingCount + ')' : 'Offline') :
+            syncStatus === 'error' ? 'Error' : 'Syncing...'
           ),
           e('button', {className:'btn btn-ghost', onClick:exportCSV}, e(DownloadIcon), ' Export'),
           e('button', {className:'btn btn-primary', onClick:function(){setModal('add');}}, e(PlusIcon), ' Add Item'),
