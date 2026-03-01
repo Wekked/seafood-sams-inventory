@@ -668,6 +668,36 @@ function MainApp(props) {
     setDragState({draggingId:null, overId:null, overPos:null});
   };
 
+  // Touch-friendly move up/down for iPad reordering
+  var moveItem = function(itemId, direction) {
+    var currentIds = customOrders[locationFilter] || filtered.map(function(i) { return i.id; });
+    currentIds = currentIds.slice(); // clone
+    var idx = currentIds.indexOf(itemId);
+    if (idx === -1) return;
+    var newIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= currentIds.length) return;
+
+    // Swap
+    var tmp = currentIds[idx];
+    currentIds[idx] = currentIds[newIdx];
+    currentIds[newIdx] = tmp;
+
+    setCustomOrders(function(prev) {
+      var updated = Object.assign({}, prev);
+      updated[locationFilter] = currentIds;
+      return updated;
+    });
+
+    // Persist to Supabase
+    if (SUPABASE_CONFIGURED) {
+      SupaDB.saveCustomOrder(locationFilter, currentIds).then(function(result) {
+        if (result.error) {
+          console.error('Failed to save order:', result.error);
+        }
+      });
+    }
+  };
+
   var toggleReorderMode = function() {
     if (!reorderMode && locationFilter !== 'All') {
       // Entering reorder mode — initialize custom order from current display if none exists
@@ -978,7 +1008,11 @@ function MainApp(props) {
                     reorderMode && e('td', {style:{textAlign:'center', padding:'12px 6px'}},
                       e('div', {style:{display:'flex', alignItems:'center', gap:4, justifyContent:'center'}},
                         e('span', {className:'row-number'}, rowIndex + 1),
-                        e('div', {className:'drag-handle'}, e(DragIcon))
+                        e('div', {className:'drag-handle'}, e(DragIcon)),
+                        e('div', {className:'reorder-touch-btns'},
+                          e('button', {className:'reorder-touch-btn', title:'Move up', onClick:function(){moveItem(item.id,'up');}, disabled:rowIndex===0}, '\u25B2'),
+                          e('button', {className:'reorder-touch-btn', title:'Move down', onClick:function(){moveItem(item.id,'down');}, disabled:rowIndex===filtered.length-1}, '\u25BC')
+                        )
                       )
                     ),
                     e('td', null,
