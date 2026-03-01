@@ -21,11 +21,18 @@ const CAT_COLORS = { 'Food': '#E85D4A', 'Paper & Supplies': '#F59E0B', 'Merchand
 const SUPPLIERS = ['Sysco','Gordon Foods','U S Foods','Marks','BJs','RTI','Uline','Staples','Pepsi','Cape Fish','Henny Penny','HT Berry','Lou Knife','Martinetti','Colonial','Lamarca','Northcoast','Amazon','RAW SEAFO','CCP'];
 
 // ──── User Accounts ────
-const DEFAULT_USERS = [
+// Users are now managed via Supabase Auth + profiles table.
+// The DEFAULT_USERS array is kept as a fallback if Supabase is not configured.
+var DEFAULT_USERS = [
   { username: 'admin', password: 'seafoodsams', displayName: 'Admin', role: 'admin' },
   { username: 'manager', password: 'falmouth1', displayName: 'Manager', role: 'manager' },
   { username: 'staff', password: 'inventory1', displayName: 'Staff', role: 'staff' }
 ];
+
+// Check if Supabase is configured (not still using placeholder)
+var SUPABASE_CONFIGURED = typeof window.SupaDB !== 'undefined' &&
+  typeof SUPABASE_URL !== 'undefined' &&
+  SUPABASE_URL.indexOf('YOUR_PROJECT_ID') === -1;
 
 // SVG Icons as functions
 const UserIcon = () => e('svg', {width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('path',{d:'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'}), e('circle',{cx:12,cy:7,r:4}));
@@ -57,18 +64,42 @@ function LoginPage(props) {
       return;
     }
     setLoading(true);
-    // Simulate auth delay
-    setTimeout(function() {
-      var user = DEFAULT_USERS.find(function(u) {
-        return u.username.toLowerCase() === username.trim().toLowerCase() && u.password === password;
+
+    if (SUPABASE_CONFIGURED) {
+      // ──── Supabase Auth ────
+      SupaAuth.signIn(username.trim(), password).then(function(result) {
+        if (result.error) {
+          setError(result.error.message || 'Invalid credentials.');
+          setLoading(false);
+          return;
+        }
+        var user = result.data.user;
+        // Fetch profile for display name and role
+        SupaAuth.getProfile(user.id).then(function(profileResult) {
+          var profile = profileResult.data;
+          onLogin({
+            id: user.id,
+            username: user.email,
+            displayName: profile ? profile.display_name : user.email.split('@')[0],
+            role: profile ? profile.role : 'staff',
+            supabaseUser: true
+          });
+        });
       });
-      if (user) {
-        onLogin({ username: user.username, displayName: user.displayName, role: user.role });
-      } else {
-        setError('Invalid username or password.');
-        setLoading(false);
-      }
-    }, 800);
+    } else {
+      // ──── Fallback local auth ────
+      setTimeout(function() {
+        var user = DEFAULT_USERS.find(function(u) {
+          return u.username.toLowerCase() === username.trim().toLowerCase() && u.password === password;
+        });
+        if (user) {
+          onLogin({ username: user.username, displayName: user.displayName, role: user.role, supabaseUser: false });
+        } else {
+          setError('Invalid username or password.');
+          setLoading(false);
+        }
+      }, 800);
+    }
   };
 
   var handleKeyDown = function(ev) {
@@ -93,7 +124,7 @@ function LoginPage(props) {
     e('div', {className: 'login-card'},
       // Top section with branding
       e('div', {className: 'login-card-top'},
-        e('div', {className: 'login-logo'}, '🦞'),
+        e('div', {className: 'login-logo'}, '\ud83e\udde1'),
         e('h1', null, "Seafood Sam's"),
         e('div', {className: 'subtitle'}, 'Falmouth, MA')
       ),
@@ -113,13 +144,13 @@ function LoginPage(props) {
 
         // Username field
         e('div', {className: 'login-form-group'},
-          e('label', null, 'Username'),
+          e('label', null, SUPABASE_CONFIGURED ? 'Email' : 'Username'),
           e('div', {className: 'login-input-wrap'},
             e(UserIcon),
             e('input', {
               className: 'login-input' + (error ? ' error' : ''),
               type: 'text',
-              placeholder: 'Enter your username',
+              placeholder: SUPABASE_CONFIGURED ? 'Enter your email' : 'Enter your username',
               value: username,
               onChange: function(ev) { setUsername(ev.target.value); setError(''); },
               onKeyDown: handleKeyDown,
@@ -276,14 +307,68 @@ function FoodCostCalc(props) {
 function App() {
   var _user = useState(null);
   var currentUser = _user[0]; var setCurrentUser = _user[1];
+  var _checkingSession = useState(SUPABASE_CONFIGURED);
+  var checkingSession = _checkingSession[0]; var setCheckingSession = _checkingSession[1];
+
+  // ──── Restore session on page load ────
+  useEffect(function() {
+    if (!SUPABASE_CONFIGURED) return;
+
+    SupaAuth.getSession().then(function(result) {
+      var session = result.data && result.data.session;
+      if (session && session.user) {
+        var user = session.user;
+        SupaAuth.getProfile(user.id).then(function(profileResult) {
+          var profile = profileResult.data;
+          setCurrentUser({
+            id: user.id,
+            username: user.email,
+            displayName: profile ? profile.display_name : user.email.split('@')[0],
+            role: profile ? profile.role : 'staff',
+            supabaseUser: true
+          });
+          setCheckingSession(false);
+        });
+      } else {
+        setCheckingSession(false);
+      }
+    });
+
+    // Also listen for future auth changes (token refresh, etc.)
+    var sub = SupaAuth.onAuthChange(function(event, session) {
+      if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+      }
+    });
+
+    return function() {
+      if (sub && sub.data && sub.data.subscription) {
+        sub.data.subscription.unsubscribe();
+      }
+    };
+  }, []);
 
   var handleLogin = function(user) {
     setCurrentUser(user);
   };
 
   var handleLogout = function() {
-    setCurrentUser(null);
+    if (SUPABASE_CONFIGURED) {
+      SupaAuth.signOut().then(function() {
+        setCurrentUser(null);
+      });
+    } else {
+      setCurrentUser(null);
+    }
   };
+
+  // Show loading while checking for existing session
+  if (checkingSession) {
+    return e('div', {className:'loading-screen'},
+      e('div', {className:'spinner-lg'}),
+      e('p', null, 'Restoring session...')
+    );
+  }
 
   // Show login page if not authenticated
   if (!currentUser) {
@@ -297,7 +382,9 @@ function App() {
 function MainApp(props) {
   var currentUser = props.currentUser;
   var onLogout = props.onLogout;
-  const [items, setItems] = useState(window.INITIAL_DATA || []);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [syncStatus, setSyncStatus] = useState('loading'); // 'loading', 'synced', 'offline', 'error'
   const [page, setPage] = useState('track');
   const [search, setSearch] = useState('');
   const [locationFilter, setLocationFilter] = useState('All');
@@ -314,6 +401,78 @@ function MainApp(props) {
   const [customOrders, setCustomOrders] = useState({});
   const [dragState, setDragState] = useState({draggingId:null, overId:null, overPos:null});
   const perPage = 50;
+
+  // ──── Load data from Supabase on mount ────
+  useEffect(function() {
+    if (!SUPABASE_CONFIGURED) {
+      // Fallback: use local JSON data
+      setItems(window.INITIAL_DATA || []);
+      setLoading(false);
+      setSyncStatus('offline');
+      return;
+    }
+
+    // Load items from Supabase
+    SupaDB.loadItems().then(function(result) {
+      if (result.error) {
+        console.error('Failed to load from Supabase:', result.error);
+        setItems(window.INITIAL_DATA || []);
+        setSyncStatus('error');
+      } else if (result.data && result.data.length > 0) {
+        setItems(result.data.map(dbToItem));
+        setSyncStatus('synced');
+      } else {
+        // Database is empty — use local data as seed
+        setItems(window.INITIAL_DATA || []);
+        setSyncStatus('synced');
+      }
+      setLoading(false);
+    });
+
+    // Load custom sort orders
+    SupaDB.loadCustomOrders().then(function(result) {
+      if (result.data && result.data.length > 0) {
+        var orders = {};
+        result.data.forEach(function(row) {
+          orders[row.location_name] = row.item_order;
+        });
+        setCustomOrders(orders);
+      }
+    });
+
+    // ──── Realtime subscription for multi-device sync ────
+    var channel = SupaDB.subscribeToItems(
+      // INSERT
+      function(newRow) {
+        var newItem = dbToItem(newRow);
+        setItems(function(prev) {
+          // Don't add duplicates
+          if (prev.some(function(i) { return i.id === newItem.id; })) return prev;
+          return prev.concat([newItem]);
+        });
+      },
+      // UPDATE
+      function(updatedRow) {
+        var updated = dbToItem(updatedRow);
+        setItems(function(prev) {
+          return prev.map(function(item) {
+            return item.id === updated.id ? updated : item;
+          });
+        });
+      },
+      // DELETE
+      function(deletedRow) {
+        setItems(function(prev) {
+          return prev.filter(function(item) { return item.id !== deletedRow.id; });
+        });
+      }
+    );
+
+    // Cleanup on unmount
+    return function() {
+      SupaDB.unsubscribe(channel);
+    };
+  }, []);
 
   const locations = useMemo(function() {
     var locs = {};
@@ -399,16 +558,32 @@ function MainApp(props) {
   };
 
   var saveChanges = function() {
+    var count = Object.keys(changes).length;
+    var now = new Date().toISOString().split('T')[0];
+
+    // Optimistic update: apply locally immediately
     setItems(function(prev) { return prev.map(function(item) {
       if (changes[item.id] !== undefined) {
         var newQty = changes[item.id];
-        return Object.assign({}, item, {quantity:newQty, totalValue:Math.round(newQty*item.price*100)/100, lastCounted:new Date().toISOString().split('T')[0]});
+        return Object.assign({}, item, {quantity:newQty, totalValue:Math.round(newQty*item.price*100)/100, lastCounted:now});
       }
       return item;
     }); });
-    var count = Object.keys(changes).length;
     setChanges({});
-    setToast({message:count+' item(s) updated', type:'success'});
+
+    // Persist to Supabase
+    if (SUPABASE_CONFIGURED) {
+      SupaDB.saveQuantityChanges(changes, items).then(function(result) {
+        if (result.error) {
+          console.error('Save failed:', result.error);
+          setToast({message:'Save failed — changes may not sync', type:'warning'});
+        } else {
+          setToast({message:count+' item(s) saved & synced', type:'success'});
+        }
+      });
+    } else {
+      setToast({message:count+' item(s) updated (local only)', type:'success'});
+    }
   };
 
   var discardChanges = function() { setChanges({}); };
@@ -475,6 +650,11 @@ function MainApp(props) {
       return updated;
     });
 
+    // Persist to Supabase
+    if (SUPABASE_CONFIGURED) {
+      SupaDB.saveCustomOrder(locationFilter, currentIds);
+    }
+
     setDragState({draggingId:null, overId:null, overPos:null});
     setToast({message:'Item order updated', type:'success'});
   };
@@ -505,45 +685,107 @@ function MainApp(props) {
       return updated;
     });
     setReorderMode(false);
+
+    // Persist to Supabase
+    if (SUPABASE_CONFIGURED) {
+      SupaDB.deleteCustomOrder(locationFilter);
+    }
+
     setToast({message:'Custom order cleared for ' + locationFilter, type:'warning'});
   };
 
   var addItem = function() {
-    var item = Object.assign({id:Math.max.apply(null,items.map(function(i){return i.id;}))+1}, newItem, {
-      quantity:parseFloat(newItem.quantity)||0, price:parseFloat(newItem.price)||0,
-      totalValue:(parseFloat(newItem.quantity)||0)*(parseFloat(newItem.price)||0),
-      lastCounted:new Date().toISOString().split('T')[0]
-    });
-    setItems(function(prev){return prev.concat([item]);});
-    setModal(null);
-    setNewItem({name:'',itemNumber:'',category:'Food',location:'Cellar',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
-    setToast({message:'"'+item.name+'" added', type:'success'});
+    if (SUPABASE_CONFIGURED) {
+      SupaDB.addItem(newItem).then(function(result) {
+        if (result.error) {
+          console.error('Add failed:', result.error);
+          setToast({message:'Failed to add item', type:'warning'});
+          return;
+        }
+        var savedItem = dbToItem(result.data);
+        setItems(function(prev) { return prev.concat([savedItem]); });
+        setModal(null);
+        setNewItem({name:'',itemNumber:'',category:'Food',location:'Cellar',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
+        setToast({message:'"'+savedItem.name+'" added & synced', type:'success'});
+      });
+    } else {
+      // Local fallback
+      var item = Object.assign({id:Math.max.apply(null,items.map(function(i){return i.id;}))+1}, newItem, {
+        quantity:parseFloat(newItem.quantity)||0, price:parseFloat(newItem.price)||0,
+        totalValue:(parseFloat(newItem.quantity)||0)*(parseFloat(newItem.price)||0),
+        lastCounted:new Date().toISOString().split('T')[0]
+      });
+      setItems(function(prev){return prev.concat([item]);});
+      setModal(null);
+      setNewItem({name:'',itemNumber:'',category:'Food',location:'Cellar',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
+      setToast({message:'"'+item.name+'" added (local only)', type:'success'});
+    }
   };
 
   var saveEdit = function() {
+    var qty = parseFloat(editItem.quantity)||0;
+    var price = parseFloat(editItem.price)||0;
+    var updatedItem = Object.assign({}, editItem, {quantity:qty, price:price, totalValue:Math.round(qty*price*100)/100});
+
+    // Optimistic local update
     setItems(function(prev){return prev.map(function(i){
-      if (i.id === editItem.id) {
-        var qty = parseFloat(editItem.quantity)||0;
-        var price = parseFloat(editItem.price)||0;
-        return Object.assign({}, editItem, {quantity:qty, price:price, totalValue:Math.round(qty*price*100)/100});
-      }
-      return i;
+      return i.id === updatedItem.id ? updatedItem : i;
     });});
     setModal(null); setEditItem(null);
-    setToast({message:'Item updated', type:'success'});
+
+    if (SUPABASE_CONFIGURED) {
+      SupaDB.updateItem(updatedItem).then(function(result) {
+        if (result.error) {
+          console.error('Update failed:', result.error);
+          setToast({message:'Update failed — may not sync', type:'warning'});
+        } else {
+          setToast({message:'Item saved & synced', type:'success'});
+        }
+      });
+    } else {
+      setToast({message:'Item updated (local only)', type:'success'});
+    }
   };
 
   var deleteItem = function(id) {
     if (!confirm('Delete this item?')) return;
     var item = items.find(function(i){return i.id===id;});
+
+    // Optimistic local delete
     setItems(function(prev){return prev.filter(function(i){return i.id!==id;});});
-    setToast({message:'"'+(item?item.name:'')+'" deleted', type:'warning'});
+
+    if (SUPABASE_CONFIGURED) {
+      SupaDB.deleteItem(id).then(function(result) {
+        if (result.error) {
+          console.error('Delete failed:', result.error);
+          setToast({message:'Delete failed — may not sync', type:'warning'});
+        } else {
+          setToast({message:'"'+(item?item.name:'')+'" deleted & synced', type:'success'});
+        }
+      });
+    } else {
+      setToast({message:'"'+(item?item.name:'')+'" deleted (local only)', type:'warning'});
+    }
   };
 
   var closeInventory = function() {
     var now = new Date().toISOString().split('T')[0];
+
+    // Optimistic local update
     setItems(function(prev){return prev.map(function(i){return Object.assign({},i,{lastCounted:now});});});
-    setToast({message:'Inventory closed for '+fmtDate(now), type:'success'});
+
+    if (SUPABASE_CONFIGURED) {
+      SupaDB.closeInventory().then(function(result) {
+        if (result.error) {
+          console.error('Close inventory failed:', result.error);
+          setToast({message:'Close failed — may not sync', type:'warning'});
+        } else {
+          setToast({message:'Inventory closed & synced for '+fmtDate(now), type:'success'});
+        }
+      });
+    } else {
+      setToast({message:'Inventory closed for '+fmtDate(now)+' (local only)', type:'success'});
+    }
   };
 
   var exportCSV = function() {
@@ -569,7 +811,7 @@ function MainApp(props) {
     e('header', {className:'app-header'},
       e('div', {className:'header-main'},
         e('div', {className:'brand'},
-          e('div', {className:'brand-icon'}, '🦞'),
+          e('div', {className:'brand-icon'}, '\ud83e\udde1'),
           e('div', {className:'brand-text'},
             e('h1', null, "Seafood Sam's"),
             e('span', null, 'Falmouth, MA \u2014 Inventory')
@@ -579,7 +821,11 @@ function MainApp(props) {
           e(SearchIcon),
           e('input', {type:'text', placeholder:'Search items, categories, locations...', value:search, onChange:function(ev){setSearch(ev.target.value);setTablePage(1);}})
         ),
-        e('div', {className:'header-actions'},
+          e('div', {className:'header-actions'},
+          e('div', {className:'sync-badge '+syncStatus},
+            e('div', {className:'sync-dot'}),
+            syncStatus === 'synced' ? 'Synced' : syncStatus === 'offline' ? 'Local' : syncStatus === 'error' ? 'Error' : 'Loading'
+          ),
           e('button', {className:'btn btn-ghost', onClick:exportCSV}, e(DownloadIcon), ' Export'),
           e('button', {className:'btn btn-primary', onClick:function(){setModal('add');}}, e(PlusIcon), ' Add Item'),
           e('div', {className:'user-badge'},
@@ -597,6 +843,12 @@ function MainApp(props) {
       )
     ),
 
+    loading ? e('div', {className:'main-content'},
+      e('div', {className:'loading-screen'},
+        e('div', {className:'spinner-lg'}),
+        e('p', null, 'Loading inventory from database...')
+      )
+    ) :
     e('div', {className:'main-content'},
 
       // ──── TRACK PAGE ────
