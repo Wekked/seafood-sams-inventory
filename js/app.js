@@ -652,7 +652,12 @@ function MainApp(props) {
 
     // Persist to Supabase
     if (SUPABASE_CONFIGURED) {
-      SupaDB.saveCustomOrder(locationFilter, currentIds);
+      SupaDB.saveCustomOrder(locationFilter, currentIds).then(function(result) {
+        if (result.error) {
+          console.error('Failed to save custom order:', result.error);
+          setToast({message:'Order saved locally but failed to sync', type:'warning'});
+        }
+      });
     }
 
     setDragState({draggingId:null, overId:null, overPos:null});
@@ -672,6 +677,19 @@ function MainApp(props) {
           var updated = Object.assign({}, prev);
           updated[locationFilter] = currentIds;
           return updated;
+        });
+      }
+    } else if (reorderMode && locationFilter !== 'All') {
+      // Exiting reorder mode — persist the current order to Supabase
+      var orderToSave = customOrders[locationFilter];
+      if (SUPABASE_CONFIGURED && orderToSave && orderToSave.length > 0) {
+        SupaDB.saveCustomOrder(locationFilter, orderToSave).then(function(result) {
+          if (result.error) {
+            console.error('Failed to save order on exit:', result.error);
+            setToast({message:'Order may not have synced', type:'warning'});
+          } else {
+            setToast({message:'Walkthrough order saved & synced for ' + locationFilter, type:'success'});
+          }
         });
       }
     }
