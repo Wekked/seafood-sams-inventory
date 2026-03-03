@@ -1054,9 +1054,9 @@ function MainApp(props) {
                 e('tr', null,
                   reorderMode && e('th', {className:'th-reorder'}, '#'),
                   e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('name');}}, 'Item'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('name'))),
+                  e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('quantity');}}, 'Qty on Hand'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('quantity'))),
                   e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('category');}}, 'Category'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('category'))),
                   e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('location');}}, 'Location'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('location'))),
-                  e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('quantity');}}, 'Qty on Hand'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('quantity'))),
                   e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('price');}}, 'Price'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('price'))),
                   e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('totalValue');}}, 'Value'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('totalValue'))),
                   e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('lastCounted');}}, 'Last Counted'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('lastCounted'))),
@@ -1101,14 +1101,14 @@ function MainApp(props) {
                       e('div', {className:'item-name'}, item.name),
                       e('div', {className:'item-id'}, item.itemNumber)
                     ),
-                    e('td', null, e('span', {className:'category-badge '+catClass(item.category)}, item.category)),
-                    e('td', {style:{fontSize:12,color:'var(--gray-500)'}}, item.location),
                     e('td', null,
                       e('div', {className:'qty-cell'},
                         e('input', {type:'number', className:'qty-input '+(changes[item.id]!==undefined?'changed':''), value:currentQty, onChange:function(ev){updateQuantity(item.id,ev.target.value);}, min:0, step:0.5}),
                         e('span', {className:'qty-unit'}, item.quantityUnit)
                       )
                     ),
+                    e('td', null, e('span', {className:'category-badge '+catClass(item.category)}, item.category)),
+                    e('td', {style:{fontSize:12,color:'var(--gray-500)'}}, item.location),
                     e('td', {className:'price-cell'}, fmt(item.price), e('span', {style:{fontSize:10,color:'var(--gray-400)'}}, '/'+item.priceUnit)),
                     e('td', {className:'value-cell'}, fmt(currentVal)),
                     e('td', {className:'date-cell'}, fmtDate(item.lastCounted)),
