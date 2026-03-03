@@ -396,7 +396,7 @@ function MainApp(props) {
   const [editItem, setEditItem] = useState(null);
   const [toast, setToast] = useState(null);
   const [changes, setChanges] = useState({});
-  const [newItem, setNewItem] = useState({name:'',itemNumber:'',category:'Food',location:'Cellar',supplier:'',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
+  const [newItem, setNewItem] = useState({name:'',itemNumber:'',category:'Food',location:'Cellar',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
   const [reorderMode, setReorderMode] = useState(false);
   const [customOrders, setCustomOrders] = useState({});
   const [dragState, setDragState] = useState({draggingId:null, overId:null, overPos:null});
@@ -550,7 +550,6 @@ function MainApp(props) {
   const totalValue = useMemo(function() { return items.reduce(function(s,i){return s+i.totalValue;},0); }, [items]);
   const allLocations = useMemo(function() { return [...new Set(items.map(function(i){return i.location;}))].sort(); }, [items]);
   const allCategories = useMemo(function() { return [...new Set(items.map(function(i){return i.category;}))].sort(); }, [items]);
-  const allSuppliers = useMemo(function() { return [...new Set(items.map(function(i){return i.supplier||'';}).filter(function(s){return s;}))].sort(); }, [items]);
 
   // Is custom order active for the current location filter?
   var isCustomOrderActive = locationFilter !== 'All' && customOrders[locationFilter] && customOrders[locationFilter].length > 0;
@@ -811,7 +810,7 @@ function MainApp(props) {
           });
           setItems(function(prev) { return prev.concat([tempItem]); });
           setModal(null);
-          setNewItem({name:'',itemNumber:'',category:'Food',location:'Cellar',supplier:'',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
+          setNewItem({name:'',itemNumber:'',category:'Food',location:'Cellar',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
           setSyncStatus('pending');
           setToast({message:'"'+newItem.name+'" added locally — will sync when online', type:'warning'});
         } else if (result.error) {
@@ -822,7 +821,7 @@ function MainApp(props) {
           var savedItem = dbToItem(result.data);
           setItems(function(prev) { return prev.concat([savedItem]); });
           setModal(null);
-          setNewItem({name:'',itemNumber:'',category:'Food',location:'Cellar',supplier:'',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
+          setNewItem({name:'',itemNumber:'',category:'Food',location:'Cellar',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
           setToast({message:'"'+savedItem.name+'" added & synced', type:'success'});
         }
       });
@@ -835,7 +834,7 @@ function MainApp(props) {
       });
       setItems(function(prev){return prev.concat([item]);});
       setModal(null);
-      setNewItem({name:'',itemNumber:'',category:'Food',location:'Cellar',supplier:'',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
+      setNewItem({name:'',itemNumber:'',category:'Food',location:'Cellar',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
       setToast({message:'"'+item.name+'" added (local only)', type:'success'});
     }
   };
@@ -1262,10 +1261,6 @@ function MainApp(props) {
         fg('Category', e('select', {className:'form-input', value:newItem.category, onChange:function(ev){setNewItem(function(n){return Object.assign({},n,{category:ev.target.value});});}}, allCategories.map(function(c){return e('option',{key:c,value:c},c);})))
       ),
       fg('Location', e('select', {className:'form-input', value:newItem.location, onChange:function(ev){setNewItem(function(n){return Object.assign({},n,{location:ev.target.value});});}}, allLocations.map(function(l){return e('option',{key:l,value:l},l);}))),
-      fg('Supplier', e(React.Fragment, null,
-        e('input', {className:'form-input', list:'supplier-list-add', value:newItem.supplier, onChange:function(ev){setNewItem(function(n){return Object.assign({},n,{supplier:ev.target.value});});}, placeholder:'e.g., Sysco'}),
-        e('datalist', {id:'supplier-list-add'}, allSuppliers.map(function(s){return e('option',{key:s,value:s});}))
-      )),
       e('div', {className:'form-row'},
         fg('Quantity on Hand', e('input', {className:'form-input', type:'number', min:0, step:0.5, value:newItem.quantity, onChange:function(ev){setNewItem(function(n){return Object.assign({},n,{quantity:ev.target.value});});}})),
         fg('Quantity Unit', e('select', {className:'form-input', value:newItem.quantityUnit, onChange:function(ev){setNewItem(function(n){return Object.assign({},n,{quantityUnit:ev.target.value});});}}, e('option',{value:'CS'},'CS (Case)'), e('option',{value:'PK'},'PK (Pack)'), e('option',{value:'LB'},'LB (Pound)')))
@@ -1288,10 +1283,6 @@ function MainApp(props) {
         fg('Category', e('select', {className:'form-input', value:editItem.category, onChange:function(ev){setEditItem(function(n){return Object.assign({},n,{category:ev.target.value});});}}, allCategories.map(function(c){return e('option',{key:c,value:c},c);})))
       ),
       fg('Location', e('select', {className:'form-input', value:editItem.location, onChange:function(ev){setEditItem(function(n){return Object.assign({},n,{location:ev.target.value});});}}, allLocations.map(function(l){return e('option',{key:l,value:l},l);}))),
-      fg('Supplier', e(React.Fragment, null,
-        e('input', {className:'form-input', list:'supplier-list-edit', value:editItem.supplier||'', onChange:function(ev){setEditItem(function(n){return Object.assign({},n,{supplier:ev.target.value});});}, placeholder:'e.g., Sysco'}),
-        e('datalist', {id:'supplier-list-edit'}, allSuppliers.map(function(s){return e('option',{key:s,value:s});}))
-      )),
       e('div', {className:'form-row'},
         fg('Quantity on Hand', e('input', {className:'form-input', type:'number', min:0, step:0.5, value:editItem.quantity, onChange:function(ev){setEditItem(function(n){return Object.assign({},n,{quantity:ev.target.value});});}})),
         fg('Unit', e('select', {className:'form-input', value:editItem.quantityUnit, onChange:function(ev){setEditItem(function(n){return Object.assign({},n,{quantityUnit:ev.target.value});});}}, e('option',{value:'CS'},'CS'), e('option',{value:'PK'},'PK'), e('option',{value:'LB'},'LB')))
