@@ -1124,22 +1124,36 @@ function MainApp(props) {
               )
             )
           ),
-          snapshots.length > 1 && e('div', {style:{marginTop:20}},
-            e('h3', {style:{fontSize:14,fontWeight:600,color:'#334155',marginBottom:12}}, 'Category Comparison: Last 2 Periods'),
-            e('div', {style:{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))',gap:12}},
-              Object.keys(snapshots[0].categories || {}).map(function(cat) {
-                var curr = (snapshots[0].categories[cat] || {}).value || 0;
-                var prev = (snapshots[1].categories[cat] || {}).value || 0;
-                var diff = curr - prev;
-                return e('div', {key:cat, style:{background:'#F8FAFC',borderRadius:8,padding:'12px 16px',border:'1px solid #E2E8F0'}},
-                  e('div', {style:{fontSize:12,color:'#64748B',fontWeight:600,textTransform:'uppercase',letterSpacing:1}}, cat),
-                  e('div', {style:{fontSize:18,fontWeight:700,color:'#1E293B',marginTop:4}}, fmt(curr)),
-                  e('div', {style:{fontSize:12,fontWeight:500,color: diff >= 0 ? '#10B981' : '#EF4444',marginTop:2}},
-                    (diff >= 0 ? '\u25B2 +' : '\u25BC ') + fmt(Math.abs(diff)) + ' vs prev'
-                  )
-                );
-              })
-            )
+          e('div', {style:{marginTop:20}},
+            e('h3', {style:{fontSize:14,fontWeight:600,color:'#334155',marginBottom:12}},
+              snapshots.length > 1 ? 'Category Comparison: Last 2 Periods' : 'Category Breakdown: ' + fmtDate(snapshots[0].closed_date)
+            ),
+            (function() {
+              // Merge all known categories: from current inventory + all snapshots
+              var allCats = {};
+              allCategories.forEach(function(c) { allCats[c] = true; });
+              snapshots.forEach(function(snap) {
+                Object.keys(snap.categories || {}).forEach(function(c) { allCats[c] = true; });
+              });
+              var catList = Object.keys(allCats).sort();
+              return e('div', {style:{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))',gap:12}},
+                catList.map(function(cat) {
+                  var curr = (snapshots[0].categories[cat] || {}).value || 0;
+                  var hasPrev = snapshots.length > 1;
+                  var prev = hasPrev ? ((snapshots[1].categories[cat] || {}).value || 0) : null;
+                  var diff = hasPrev ? curr - prev : null;
+                  return e('div', {key:cat, style:{background:'#F8FAFC',borderRadius:8,padding:'12px 16px',border:'1px solid #E2E8F0'}},
+                    e('div', {style:{fontSize:12,color:'#64748B',fontWeight:600,textTransform:'uppercase',letterSpacing:1}}, cat),
+                    e('div', {style:{fontSize:18,fontWeight:700,color:'#1E293B',marginTop:4}}, fmt(curr)),
+                    hasPrev
+                      ? e('div', {style:{fontSize:12,fontWeight:500,color: diff >= 0 ? '#10B981' : '#EF4444',marginTop:2}},
+                          (diff >= 0 ? '\u25B2 +' : '\u25BC ') + fmt(Math.abs(diff)) + ' vs prev'
+                        )
+                      : e('div', {style:{fontSize:12,fontWeight:500,color:'#94A3B8',marginTop:2}}, 'First period recorded')
+                  );
+                })
+              );
+            })()
           )
         )
       ),
