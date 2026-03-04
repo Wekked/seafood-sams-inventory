@@ -31,8 +31,9 @@ var DEFAULT_USERS = [
 
 // Check if Supabase is configured (not still using placeholder)
 var SUPABASE_CONFIGURED = typeof window.SupaDB !== 'undefined' &&
-  typeof SUPABASE_URL !== 'undefined' &&
-  SUPABASE_URL.indexOf('YOUR_PROJECT_ID') === -1;
+  typeof SUPABASE_URL === 'string' &&
+  SUPABASE_URL.indexOf('YOUR_PROJECT_ID') === -1 &&
+  SUPABASE_URL.indexOf('supabase.co') !== -1;
 
 // SVG Icons as functions
 const UserIcon = () => e('svg', {width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('path',{d:'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2'}), e('circle',{cx:12,cy:7,r:4}));
@@ -124,7 +125,7 @@ function LoginPage(props) {
     e('div', {className: 'login-card'},
       // Top section with branding
       e('div', {className: 'login-card-top'},
-        e('div', {className: 'login-logo'}, '🦞'),
+        e('div', {className: 'login-logo'}, '\ud83e\udde1'),
         e('h1', null, "Seafood Sam's"),
         e('div', {className: 'subtitle'}, 'Falmouth, MA')
       ),
@@ -384,7 +385,7 @@ function MainApp(props) {
   var onLogout = props.onLogout;
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [syncStatus, setSyncStatus] = useState('loading'); // 'loading', 'synced', 'offline', 'error', 'pending'
+  const [syncStatus, setSyncStatus] = useState('loading'); // 'loading', 'synced', 'offline', 'error'
   const [page, setPage] = useState('track');
   const [search, setSearch] = useState('');
   const [locationFilter, setLocationFilter] = useState('All');
@@ -396,64 +397,11 @@ function MainApp(props) {
   const [editItem, setEditItem] = useState(null);
   const [toast, setToast] = useState(null);
   const [changes, setChanges] = useState({});
-  const [newItem, setNewItem] = useState({name:'',itemNumber:'',category:'Food',location:'Cellar',supplier:'',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
+  const [newItem, setNewItem] = useState({name:'',itemNumber:'',category:'Food',location:'Cellar',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
   const [reorderMode, setReorderMode] = useState(false);
   const [customOrders, setCustomOrders] = useState({});
   const [dragState, setDragState] = useState({draggingId:null, overId:null, overPos:null});
-  const [pendingCount, setPendingCount] = useState(0);
   const perPage = 50;
-
-  // ──── Online/Offline detection & auto-sync ────
-  useEffect(function() {
-    if (!SUPABASE_CONFIGURED) return;
-
-    // Initialize pending count from queue
-    setPendingCount(OfflineQueue.count());
-
-    // Listen for queue changes
-    var unsubQueue = OfflineQueue.onChange(function(count) {
-      setPendingCount(count);
-      if (count > 0) {
-        setSyncStatus('pending');
-      }
-    });
-
-    // When browser comes back online, sync the queue
-    function handleOnline() {
-      console.log('[Offline] Back online — syncing queued changes...');
-      setSyncStatus('loading');
-      OfflineQueue.sync().then(function(result) {
-        if (result.synced > 0) {
-          setToast({message: result.synced + ' queued change(s) synced!', type:'success'});
-          // Reload fresh data from Supabase
-          SupaDB.loadItems().then(function(r) {
-            if (r.data) setItems(r.data.map(dbToItem));
-          });
-        }
-        setSyncStatus(OfflineQueue.count() > 0 ? 'pending' : 'synced');
-      });
-    }
-
-    function handleOffline() {
-      console.log('[Offline] Connection lost');
-      setSyncStatus('offline');
-      setToast({message: 'You\'re offline — changes will be saved and synced later', type:'warning'});
-    }
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    // Check if we have pending items from a previous session
-    if (OfflineQueue.count() > 0 && navigator.onLine) {
-      handleOnline();
-    }
-
-    return function() {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      unsubQueue();
-    };
-  }, []);
 
   // ──── Load data from Supabase on mount ────
   useEffect(function() {
@@ -550,7 +498,6 @@ function MainApp(props) {
   const totalValue = useMemo(function() { return items.reduce(function(s,i){return s+i.totalValue;},0); }, [items]);
   const allLocations = useMemo(function() { return [...new Set(items.map(function(i){return i.location;}))].sort(); }, [items]);
   const allCategories = useMemo(function() { return [...new Set(items.map(function(i){return i.category;}))].sort(); }, [items]);
-  const allSuppliers = useMemo(function() { return [...new Set(items.map(function(i){return i.supplier||'';}).filter(function(s){return s;}))].sort(); }, [items]);
 
   // Is custom order active for the current location filter?
   var isCustomOrderActive = locationFilter !== 'All' && customOrders[locationFilter] && customOrders[locationFilter].length > 0;
@@ -628,10 +575,7 @@ function MainApp(props) {
     // Persist to Supabase
     if (SUPABASE_CONFIGURED) {
       SupaDB.saveQuantityChanges(changes, items).then(function(result) {
-        if (result._queued) {
-          setSyncStatus('pending');
-          setToast({message:count+' item(s) saved locally — will sync when online', type:'warning'});
-        } else if (result.error) {
+        if (result.error) {
           console.error('Save failed:', result.error);
           setToast({message:'Save failed — changes may not sync', type:'warning'});
         } else {
@@ -709,12 +653,7 @@ function MainApp(props) {
 
     // Persist to Supabase
     if (SUPABASE_CONFIGURED) {
-      SupaDB.saveCustomOrder(locationFilter, currentIds).then(function(result) {
-        if (result.error) {
-          console.error('Failed to save custom order:', result.error);
-          setToast({message:'Order saved locally but failed to sync', type:'warning'});
-        }
-      });
+      SupaDB.saveCustomOrder(locationFilter, currentIds);
     }
 
     setDragState({draggingId:null, overId:null, overPos:null});
@@ -723,36 +662,6 @@ function MainApp(props) {
 
   var handleDragEnd = function() {
     setDragState({draggingId:null, overId:null, overPos:null});
-  };
-
-  // Touch-friendly move up/down for iPad reordering
-  var moveItem = function(itemId, direction) {
-    var currentIds = customOrders[locationFilter] || filtered.map(function(i) { return i.id; });
-    currentIds = currentIds.slice(); // clone
-    var idx = currentIds.indexOf(itemId);
-    if (idx === -1) return;
-    var newIdx = direction === 'up' ? idx - 1 : idx + 1;
-    if (newIdx < 0 || newIdx >= currentIds.length) return;
-
-    // Swap
-    var tmp = currentIds[idx];
-    currentIds[idx] = currentIds[newIdx];
-    currentIds[newIdx] = tmp;
-
-    setCustomOrders(function(prev) {
-      var updated = Object.assign({}, prev);
-      updated[locationFilter] = currentIds;
-      return updated;
-    });
-
-    // Persist to Supabase
-    if (SUPABASE_CONFIGURED) {
-      SupaDB.saveCustomOrder(locationFilter, currentIds).then(function(result) {
-        if (result.error) {
-          console.error('Failed to save order:', result.error);
-        }
-      });
-    }
   };
 
   var toggleReorderMode = function() {
@@ -764,19 +673,6 @@ function MainApp(props) {
           var updated = Object.assign({}, prev);
           updated[locationFilter] = currentIds;
           return updated;
-        });
-      }
-    } else if (reorderMode && locationFilter !== 'All') {
-      // Exiting reorder mode — persist the current order to Supabase
-      var orderToSave = customOrders[locationFilter];
-      if (SUPABASE_CONFIGURED && orderToSave && orderToSave.length > 0) {
-        SupaDB.saveCustomOrder(locationFilter, orderToSave).then(function(result) {
-          if (result.error) {
-            console.error('Failed to save order on exit:', result.error);
-            setToast({message:'Order may not have synced', type:'warning'});
-          } else {
-            setToast({message:'Walkthrough order saved & synced for ' + locationFilter, type:'success'});
-          }
         });
       }
     }
@@ -802,29 +698,16 @@ function MainApp(props) {
   var addItem = function() {
     if (SUPABASE_CONFIGURED) {
       SupaDB.addItem(newItem).then(function(result) {
-        if (result._queued) {
-          // Offline — add locally with temp ID
-          var tempItem = Object.assign({id: Date.now()}, newItem, {
-            quantity:parseFloat(newItem.quantity)||0, price:parseFloat(newItem.price)||0,
-            totalValue:(parseFloat(newItem.quantity)||0)*(parseFloat(newItem.price)||0),
-            lastCounted:new Date().toISOString().split('T')[0]
-          });
-          setItems(function(prev) { return prev.concat([tempItem]); });
-          setModal(null);
-          setNewItem({name:'',itemNumber:'',category:'Food',location:'Cellar',supplier:'',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
-          setSyncStatus('pending');
-          setToast({message:'"'+newItem.name+'" added locally — will sync when online', type:'warning'});
-        } else if (result.error) {
+        if (result.error) {
           console.error('Add failed:', result.error);
           setToast({message:'Failed to add item', type:'warning'});
           return;
-        } else {
-          var savedItem = dbToItem(result.data);
-          setItems(function(prev) { return prev.concat([savedItem]); });
-          setModal(null);
-          setNewItem({name:'',itemNumber:'',category:'Food',location:'Cellar',supplier:'',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
-          setToast({message:'"'+savedItem.name+'" added & synced', type:'success'});
         }
+        var savedItem = dbToItem(result.data);
+        setItems(function(prev) { return prev.concat([savedItem]); });
+        setModal(null);
+        setNewItem({name:'',itemNumber:'',category:'Food',location:'Cellar',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
+        setToast({message:'"'+savedItem.name+'" added & synced', type:'success'});
       });
     } else {
       // Local fallback
@@ -835,7 +718,7 @@ function MainApp(props) {
       });
       setItems(function(prev){return prev.concat([item]);});
       setModal(null);
-      setNewItem({name:'',itemNumber:'',category:'Food',location:'Cellar',supplier:'',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
+      setNewItem({name:'',itemNumber:'',category:'Food',location:'Cellar',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
       setToast({message:'"'+item.name+'" added (local only)', type:'success'});
     }
   };
@@ -853,10 +736,7 @@ function MainApp(props) {
 
     if (SUPABASE_CONFIGURED) {
       SupaDB.updateItem(updatedItem).then(function(result) {
-        if (result._queued) {
-          setSyncStatus('pending');
-          setToast({message:'Item saved locally — will sync when online', type:'warning'});
-        } else if (result.error) {
+        if (result.error) {
           console.error('Update failed:', result.error);
           setToast({message:'Update failed — may not sync', type:'warning'});
         } else {
@@ -877,10 +757,7 @@ function MainApp(props) {
 
     if (SUPABASE_CONFIGURED) {
       SupaDB.deleteItem(id).then(function(result) {
-        if (result._queued) {
-          setSyncStatus('pending');
-          setToast({message:'"'+(item?item.name:'')+'" deleted locally — will sync when online', type:'warning'});
-        } else if (result.error) {
+        if (result.error) {
           console.error('Delete failed:', result.error);
           setToast({message:'Delete failed — may not sync', type:'warning'});
         } else {
@@ -896,14 +773,11 @@ function MainApp(props) {
     var now = new Date().toISOString().split('T')[0];
 
     // Optimistic local update
-    setItems(function(prev){return prev.map(function(i){return Object.assign({},i,{lastCounted:now});});});
+    setItems(function(prev){return prev.map(function(i){return Object.assign({},i,{quantity:0,totalValue:0,lastCounted:now});});});
 
     if (SUPABASE_CONFIGURED) {
       SupaDB.closeInventory().then(function(result) {
-        if (result._queued) {
-          setSyncStatus('pending');
-          setToast({message:'Inventory closed locally — will sync when online', type:'warning'});
-        } else if (result.error) {
+        if (result.error) {
           console.error('Close inventory failed:', result.error);
           setToast({message:'Close failed — may not sync', type:'warning'});
         } else {
@@ -938,7 +812,7 @@ function MainApp(props) {
     e('header', {className:'app-header'},
       e('div', {className:'header-main'},
         e('div', {className:'brand'},
-          e('div', {className:'brand-icon'}, '🦞'),
+          e('div', {className:'brand-icon'}, '\ud83e\udde1'),
           e('div', {className:'brand-text'},
             e('h1', null, "Seafood Sam's"),
             e('span', null, 'Falmouth, MA \u2014 Inventory')
@@ -951,10 +825,7 @@ function MainApp(props) {
           e('div', {className:'header-actions'},
           e('div', {className:'sync-badge '+syncStatus},
             e('div', {className:'sync-dot'}),
-            syncStatus === 'synced' ? 'Synced' :
-            syncStatus === 'pending' ? pendingCount + ' Pending' :
-            syncStatus === 'offline' ? (pendingCount > 0 ? 'Offline (' + pendingCount + ')' : 'Offline') :
-            syncStatus === 'error' ? 'Error' : 'Syncing...'
+            syncStatus === 'synced' ? 'Synced' : syncStatus === 'offline' ? 'Local' : syncStatus === 'error' ? 'Error' : 'Loading'
           ),
           e('button', {className:'btn btn-ghost', onClick:exportCSV}, e(DownloadIcon), ' Export'),
           e('button', {className:'btn btn-primary', onClick:function(){setModal('add');}}, e(PlusIcon), ' Add Item'),
@@ -1054,9 +925,9 @@ function MainApp(props) {
                 e('tr', null,
                   reorderMode && e('th', {className:'th-reorder'}, '#'),
                   e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('name');}}, 'Item'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('name'))),
-                  e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('quantity');}}, 'Qty on Hand'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('quantity'))),
                   e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('category');}}, 'Category'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('category'))),
                   e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('location');}}, 'Location'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('location'))),
+                  e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('quantity');}}, 'Qty on Hand'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('quantity'))),
                   e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('price');}}, 'Price'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('price'))),
                   e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('totalValue');}}, 'Value'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('totalValue'))),
                   e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('lastCounted');}}, 'Last Counted'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('lastCounted'))),
@@ -1090,25 +961,21 @@ function MainApp(props) {
                     reorderMode && e('td', {style:{textAlign:'center', padding:'12px 6px'}},
                       e('div', {style:{display:'flex', alignItems:'center', gap:4, justifyContent:'center'}},
                         e('span', {className:'row-number'}, rowIndex + 1),
-                        e('div', {className:'drag-handle'}, e(DragIcon)),
-                        e('div', {className:'reorder-touch-btns'},
-                          e('button', {className:'reorder-touch-btn', title:'Move up', onClick:function(){moveItem(item.id,'up');}, disabled:rowIndex===0}, '\u25B2'),
-                          e('button', {className:'reorder-touch-btn', title:'Move down', onClick:function(){moveItem(item.id,'down');}, disabled:rowIndex===filtered.length-1}, '\u25BC')
-                        )
+                        e('div', {className:'drag-handle'}, e(DragIcon))
                       )
                     ),
                     e('td', null,
                       e('div', {className:'item-name'}, item.name),
                       e('div', {className:'item-id'}, item.itemNumber)
                     ),
+                    e('td', null, e('span', {className:'category-badge '+catClass(item.category)}, item.category)),
+                    e('td', {style:{fontSize:12,color:'var(--gray-500)'}}, item.location),
                     e('td', null,
                       e('div', {className:'qty-cell'},
                         e('input', {type:'number', className:'qty-input '+(changes[item.id]!==undefined?'changed':''), value:currentQty, onChange:function(ev){updateQuantity(item.id,ev.target.value);}, min:0, step:0.5}),
                         e('span', {className:'qty-unit'}, item.quantityUnit)
                       )
                     ),
-                    e('td', null, e('span', {className:'category-badge '+catClass(item.category)}, item.category)),
-                    e('td', {style:{fontSize:12,color:'var(--gray-500)'}}, item.location),
                     e('td', {className:'price-cell'}, fmt(item.price), e('span', {style:{fontSize:10,color:'var(--gray-400)'}}, '/'+item.priceUnit)),
                     e('td', {className:'value-cell'}, fmt(currentVal)),
                     e('td', {className:'date-cell'}, fmtDate(item.lastCounted)),
@@ -1262,10 +1129,6 @@ function MainApp(props) {
         fg('Category', e('select', {className:'form-input', value:newItem.category, onChange:function(ev){setNewItem(function(n){return Object.assign({},n,{category:ev.target.value});});}}, allCategories.map(function(c){return e('option',{key:c,value:c},c);})))
       ),
       fg('Location', e('select', {className:'form-input', value:newItem.location, onChange:function(ev){setNewItem(function(n){return Object.assign({},n,{location:ev.target.value});});}}, allLocations.map(function(l){return e('option',{key:l,value:l},l);}))),
-      fg('Supplier', e(React.Fragment, null,
-        e('input', {className:'form-input', list:'supplier-list-add', value:newItem.supplier, onChange:function(ev){setNewItem(function(n){return Object.assign({},n,{supplier:ev.target.value});});}, placeholder:'e.g., Sysco'}),
-        e('datalist', {id:'supplier-list-add'}, allSuppliers.map(function(s){return e('option',{key:s,value:s});}))
-      )),
       e('div', {className:'form-row'},
         fg('Quantity on Hand', e('input', {className:'form-input', type:'number', min:0, step:0.5, value:newItem.quantity, onChange:function(ev){setNewItem(function(n){return Object.assign({},n,{quantity:ev.target.value});});}})),
         fg('Quantity Unit', e('select', {className:'form-input', value:newItem.quantityUnit, onChange:function(ev){setNewItem(function(n){return Object.assign({},n,{quantityUnit:ev.target.value});});}}, e('option',{value:'CS'},'CS (Case)'), e('option',{value:'PK'},'PK (Pack)'), e('option',{value:'LB'},'LB (Pound)')))
@@ -1288,10 +1151,6 @@ function MainApp(props) {
         fg('Category', e('select', {className:'form-input', value:editItem.category, onChange:function(ev){setEditItem(function(n){return Object.assign({},n,{category:ev.target.value});});}}, allCategories.map(function(c){return e('option',{key:c,value:c},c);})))
       ),
       fg('Location', e('select', {className:'form-input', value:editItem.location, onChange:function(ev){setEditItem(function(n){return Object.assign({},n,{location:ev.target.value});});}}, allLocations.map(function(l){return e('option',{key:l,value:l},l);}))),
-      fg('Supplier', e(React.Fragment, null,
-        e('input', {className:'form-input', list:'supplier-list-edit', value:editItem.supplier||'', onChange:function(ev){setEditItem(function(n){return Object.assign({},n,{supplier:ev.target.value});});}, placeholder:'e.g., Sysco'}),
-        e('datalist', {id:'supplier-list-edit'}, allSuppliers.map(function(s){return e('option',{key:s,value:s});}))
-      )),
       e('div', {className:'form-row'},
         fg('Quantity on Hand', e('input', {className:'form-input', type:'number', min:0, step:0.5, value:editItem.quantity, onChange:function(ev){setEditItem(function(n){return Object.assign({},n,{quantity:ev.target.value});});}})),
         fg('Unit', e('select', {className:'form-input', value:editItem.quantityUnit, onChange:function(ev){setEditItem(function(n){return Object.assign({},n,{quantityUnit:ev.target.value});});}}, e('option',{value:'CS'},'CS'), e('option',{value:'PK'},'PK'), e('option',{value:'LB'},'LB')))
