@@ -127,6 +127,20 @@ var SupaDB = {
       .neq('id', 0);
   },
 
+  saveSnapshot: function(snapshot) {
+    return supabase
+      .from('inventory_snapshots')
+      .insert(snapshot);
+  },
+
+  loadSnapshots: function() {
+    return supabase
+      .from('inventory_snapshots')
+      .select('*')
+      .order('closed_date', { ascending: false })
+      .limit(12);
+  },
+
   loadCustomOrders: function() {
     return supabase
       .from('location_sort_orders')

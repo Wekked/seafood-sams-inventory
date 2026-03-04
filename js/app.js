@@ -401,6 +401,7 @@ function MainApp(props) {
   const [reorderMode, setReorderMode] = useState(false);
   const [customOrders, setCustomOrders] = useState({});
   const [dragState, setDragState] = useState({draggingId:null, overId:null, overPos:null});
+  const [snapshots, setSnapshots] = useState([]);
   const perPage = 50;
 
   // ──── Load data from Supabase on mount ────
@@ -439,6 +440,11 @@ function MainApp(props) {
         });
         setCustomOrders(orders);
       }
+    });
+
+    // Load inventory snapshots
+    SupaDB.loadSnapshots().then(function(result) {
+      if (result.data) { setSnapshots(result.data); }
     });
 
     // ──── Realtime subscription for multi-device sync ────
@@ -772,21 +778,49 @@ function MainApp(props) {
   var closeInventory = function() {
     var now = new Date().toISOString().split('T')[0];
 
-    // Optimistic local update
-    setItems(function(prev){return prev.map(function(i){return Object.assign({},i,{quantity:0,totalValue:0,lastCounted:now});});});
+    // Build snapshot from current data before zeroing
+    var catSnap = {};
+    var locSnap = {};
+    items.forEach(function(i) {
+      if (!catSnap[i.category]) catSnap[i.category] = {count:0, value:0};
+      catSnap[i.category].count++;
+      catSnap[i.category].value = Math.round((catSnap[i.category].value + i.totalValue) * 100) / 100;
+      if (!locSnap[i.location]) locSnap[i.location] = {count:0, value:0};
+      locSnap[i.location].count++;
+      locSnap[i.location].value = Math.round((locSnap[i.location].value + i.totalValue) * 100) / 100;
+    });
+    var snapshot = {
+      closed_date: now,
+      total_value: Math.round(items.reduce(function(s,i){return s+i.totalValue;},0) * 100) / 100,
+      total_items: items.filter(function(i){return i.quantity > 0;}).length,
+      categories: catSnap,
+      locations: locSnap
+    };
 
+    // Save snapshot, then zero quantities
     if (SUPABASE_CONFIGURED) {
-      SupaDB.closeInventory().then(function(result) {
+      SupaDB.saveSnapshot(snapshot).then(function(snapResult) {
+        if (snapResult.error) {
+          console.error('Snapshot save failed:', snapResult.error);
+        } else {
+          setSnapshots(function(prev) { return [snapshot].concat(prev).slice(0, 12); });
+        }
+        // Zero quantities
+        return SupaDB.closeInventory();
+      }).then(function(result) {
         if (result.error) {
           console.error('Close inventory failed:', result.error);
           setToast({message:'Close failed — may not sync', type:'warning'});
         } else {
-          setToast({message:'Inventory closed & synced for '+fmtDate(now), type:'success'});
+          setToast({message:'Inventory closed & snapshot saved for '+fmtDate(now), type:'success'});
         }
       });
     } else {
       setToast({message:'Inventory closed for '+fmtDate(now)+' (local only)', type:'success'});
     }
+
+    // Optimistic local update
+    setItems(function(prev){return prev.map(function(i){return Object.assign({},i,{quantity:0,totalValue:0,lastCounted:now});});});
   };
 
   var exportCSV = function() {
@@ -1059,6 +1093,54 @@ function MainApp(props) {
         e('div', {style:{textAlign:'center',padding:'20px'}},
           e('button', {className:'btn btn-primary', style:{padding:'14px 32px',fontSize:15}, onClick:closeInventory}, 'Close Inventory Period'),
           e('p', {style:{fontSize:12,color:'var(--gray-400)',marginTop:8}}, 'Last closed: '+(items[0]?fmtDate(items[0].lastCounted):'\u2014'))
+        ),
+
+        snapshots.length > 0 && e('div', {className:'summary-section'},
+          e('h2', null, 'Period History'),
+          e('div', {style:{overflowX:'auto'}},
+            e('table', {className:'history-table', style:{width:'100%',borderCollapse:'collapse',fontSize:14}},
+              e('thead', null,
+                e('tr', {style:{borderBottom:'2px solid #E2E8F0'}},
+                  e('th', {style:{textAlign:'left',padding:'10px 12px',color:'#64748B',fontWeight:600}}, 'Period'),
+                  e('th', {style:{textAlign:'right',padding:'10px 12px',color:'#64748B',fontWeight:600}}, 'Total Value'),
+                  e('th', {style:{textAlign:'right',padding:'10px 12px',color:'#64748B',fontWeight:600}}, 'Items Counted'),
+                  e('th', {style:{textAlign:'right',padding:'10px 12px',color:'#64748B',fontWeight:600}}, 'Change')
+                )
+              ),
+              e('tbody', null,
+                snapshots.map(function(snap, idx) {
+                  var prev = snapshots[idx + 1];
+                  var change = prev ? snap.total_value - prev.total_value : null;
+                  var changePct = prev && prev.total_value > 0 ? Math.round((change / prev.total_value) * 1000) / 10 : null;
+                  return e('tr', {key:snap.closed_date + '-' + idx, style:{borderBottom:'1px solid #F1F5F9'}},
+                    e('td', {style:{padding:'10px 12px',fontWeight:500}}, fmtDate(snap.closed_date)),
+                    e('td', {style:{padding:'10px 12px',textAlign:'right',fontWeight:600}}, fmt(snap.total_value)),
+                    e('td', {style:{padding:'10px 12px',textAlign:'right',color:'#64748B'}}, snap.total_items),
+                    e('td', {style:{padding:'10px 12px',textAlign:'right',fontWeight:500,color: change === null ? '#94A3B8' : change >= 0 ? '#10B981' : '#EF4444'}},
+                      change === null ? '\u2014' : (change >= 0 ? '+' : '') + fmt(change) + ' (' + (changePct >= 0 ? '+' : '') + changePct + '%)'
+                    )
+                  );
+                })
+              )
+            )
+          ),
+          snapshots.length > 1 && e('div', {style:{marginTop:20}},
+            e('h3', {style:{fontSize:14,fontWeight:600,color:'#334155',marginBottom:12}}, 'Category Comparison: Last 2 Periods'),
+            e('div', {style:{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))',gap:12}},
+              Object.keys(snapshots[0].categories || {}).map(function(cat) {
+                var curr = (snapshots[0].categories[cat] || {}).value || 0;
+                var prev = (snapshots[1].categories[cat] || {}).value || 0;
+                var diff = curr - prev;
+                return e('div', {key:cat, style:{background:'#F8FAFC',borderRadius:8,padding:'12px 16px',border:'1px solid #E2E8F0'}},
+                  e('div', {style:{fontSize:12,color:'#64748B',fontWeight:600,textTransform:'uppercase',letterSpacing:1}}, cat),
+                  e('div', {style:{fontSize:18,fontWeight:700,color:'#1E293B',marginTop:4}}, fmt(curr)),
+                  e('div', {style:{fontSize:12,fontWeight:500,color: diff >= 0 ? '#10B981' : '#EF4444',marginTop:2}},
+                    (diff >= 0 ? '\u25B2 +' : '\u25BC ') + fmt(Math.abs(diff)) + ' vs prev'
+                  )
+                );
+              })
+            )
+          )
         )
       ),
 
