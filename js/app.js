@@ -2,7 +2,7 @@ const e = React.createElement;
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
 const fmt = (n) => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const localDate = function() { var d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+
 const fmtDate = (d) => {
   if (!d) return '\u2014';
   const dt = new Date(d);
