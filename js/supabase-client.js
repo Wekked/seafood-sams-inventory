@@ -1,6 +1,7 @@
 // ════════════════════════════════════════════════════════════════
 // Supabase Client — Seafood Sam's Inventory Tracker
 // ════════════════════════════════════════════════════════════════
+var localDate = function() { var d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
 //
 // SETUP: Replace SUPABASE_URL and SUPABASE_ANON_KEY with your values.
 //        Find them at: Supabase Dashboard → Settings → API Keys
@@ -55,7 +56,7 @@ var SupaDB = {
   },
 
   saveQuantityChanges: function(changes, items) {
-    var now = new Date().toISOString().split('T')[0];
+    var now = localDate();
     var updates = Object.keys(changes).map(function(idStr) {
       var id = parseInt(idStr);
       var item = items.find(function(i) { return i.id === id; });
@@ -87,7 +88,7 @@ var SupaDB = {
         price:          parseFloat(item.price) || 0,
         price_unit:     item.priceUnit,
         total_value:    (parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0),
-        last_counted:   new Date().toISOString().split('T')[0]
+        last_counted:   localDate()
       })
       .select()
       .single();
@@ -120,7 +121,7 @@ var SupaDB = {
   },
 
   closeInventory: function() {
-    var now = new Date().toISOString().split('T')[0];
+    var now = localDate();
     return supabase
       .from('items')
       .update({ last_counted: now, quantity: 0 })
