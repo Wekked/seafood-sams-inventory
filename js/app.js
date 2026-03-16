@@ -670,7 +670,7 @@ function MainApp(props) {
     setToast({message:'Item order updated', type:'success'});
   };
 
-  var moveItem = function(itemId, direction) {
+ var moveItem = function(itemId, direction) {
     var currentIds = filtered.map(function(i) { return i.id; });
     var idx = currentIds.indexOf(itemId);
     if (idx === -1) return;
@@ -684,7 +684,10 @@ function MainApp(props) {
       return updated;
     });
     if (SUPABASE_CONFIGURED) {
-      SupaDB.saveCustomOrder(locationFilter, currentIds);
+      console.log('Saving order for', locationFilter, currentIds);
+      SupaDB.saveCustomOrder(locationFilter, currentIds).then(function(r){
+        console.log('Save result:', r.status, r.error);
+      });
     }
   };
   
