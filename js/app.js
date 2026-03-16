@@ -661,9 +661,12 @@ function MainApp(props) {
       return updated;
     });
 
-    // Persist to Supabase
+   // Persist to Supabase
     if (SUPABASE_CONFIGURED) {
-      SupaDB.saveCustomOrder(locationFilter, currentIds);
+      console.log('Drag save for', locationFilter, currentIds);
+      SupaDB.saveCustomOrder(locationFilter, currentIds).then(function(r){
+        console.log('Drag save result:', r.status, r.error);
+      });
     }
 
     setDragState({draggingId:null, overId:null, overPos:null});
