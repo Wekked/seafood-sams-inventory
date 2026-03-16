@@ -213,6 +213,8 @@ const DragIcon = () => e('svg', {width:16,height:16,viewBox:'0 0 24 24',fill:'cu
 const ReorderIcon = () => e('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('line',{x1:4,y1:6,x2:20,y2:6}), e('line',{x1:4,y1:12,x2:20,y2:12}), e('line',{x1:4,y1:18,x2:20,y2:18}), e('polyline',{points:'1 4 4 1 7 4'}), e('polyline',{points:'1 20 4 23 7 20'}));
 const CheckCircleIcon = () => e('svg', {width:14,height:14,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('path',{d:'M22 11.08V12a10 10 0 1 1-5.93-9.14'}), e('polyline',{points:'22 4 12 14.01 9 11.01'}));
 const InfoIcon = () => e('svg', {width:16,height:16,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2}, e('circle',{cx:12,cy:12,r:10}), e('line',{x1:12,y1:16,x2:12,y2:12}), e('line',{x1:12,y1:8,x2:12.01,y2:8}));
+const MoveUpIcon = () => e('svg', {width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2.5}, e('polyline',{points:'18 15 12 9 6 15'}));
+const MoveDownIcon = () => e('svg', {width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:2.5}, e('polyline',{points:'6 9 12 15 18 9'}));
 
 // Pie Chart
 function PieChart(props) {
@@ -668,6 +670,24 @@ function MainApp(props) {
     setToast({message:'Item order updated', type:'success'});
   };
 
+  var moveItem = function(itemId, direction) {
+    var currentIds = filtered.map(function(i) { return i.id; });
+    var idx = currentIds.indexOf(itemId);
+    if (idx === -1) return;
+    var newIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= currentIds.length) return;
+    currentIds.splice(idx, 1);
+    currentIds.splice(newIdx, 0, itemId);
+    setCustomOrders(function(prev) {
+      var updated = Object.assign({}, prev);
+      updated[locationFilter] = currentIds;
+      return updated;
+    });
+    if (SUPABASE_CONFIGURED) {
+      SupaDB.saveCustomOrder(locationFilter, currentIds);
+    }
+  };
+  
   var handleDragEnd = function() {
     setDragState({draggingId:null, overId:null, overPos:null});
   };
@@ -994,9 +1014,11 @@ function MainApp(props) {
                   }
 
                   return e('tr', rowProps,
-                    reorderMode && e('td', {style:{textAlign:'center', padding:'12px 6px'}},
-                      e('div', {style:{display:'flex', alignItems:'center', gap:4, justifyContent:'center'}},
+                    reorderMode && e('td', {style:{textAlign:'center', padding:'6px'}},
+                      e('div', {style:{display:'flex', alignItems:'center', gap:6, justifyContent:'center'}},
                         e('span', {className:'row-number'}, rowIndex + 1),
+                        e('button', {style:{background:'none',border:'1px solid #CBD5E1',borderRadius:6,padding:'4px 6px',cursor:'pointer',display:'flex',alignItems:'center',opacity:rowIndex===0?0.3:1}, disabled:rowIndex===0, onClick:function(){moveItem(item.id,'up');}}, e(MoveUpIcon)),
+                        e('button', {style:{background:'none',border:'1px solid #CBD5E1',borderRadius:6,padding:'4px 6px',cursor:'pointer',display:'flex',alignItems:'center',opacity:rowIndex===pageItems.length-1?0.3:1}, disabled:rowIndex===pageItems.length-1, onClick:function(){moveItem(item.id,'down');}}, e(MoveDownIcon)),
                         e('div', {className:'drag-handle'}, e(DragIcon))
                       )
                     ),
