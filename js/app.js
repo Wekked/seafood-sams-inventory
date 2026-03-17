@@ -1010,13 +1010,8 @@ function MainApp(props) {
                   if (isOver && dragState.overPos === 'below') dragClass += ' drag-over-below';
 
                   var rowProps = {key:item.id, className: dragClass.trim()};
-                  if (reorderMode) {
-                    rowProps.draggable = true;
-                    rowProps.onDragStart = function(ev) { handleDragStart(item.id, ev); };
-                    rowProps.onDragOver = function(ev) { handleDragOver(item.id, ev); };
-                    rowProps.onDragLeave = function(ev) { handleDragLeave(item.id, ev); };
-                    rowProps.onDrop = function(ev) { handleDrop(item.id, ev); };
-                    rowProps.onDragEnd = handleDragEnd;
+                   if (reorderMode) {
+                    rowProps.draggable = false;
                   }
 
                   return e('tr', rowProps,
@@ -1025,7 +1020,7 @@ function MainApp(props) {
                         e('span', {className:'row-number'}, rowIndex + 1),
                         e('button', {style:{background:'none',border:'1px solid #CBD5E1',borderRadius:6,padding:'4px 6px',cursor:'pointer',display:'flex',alignItems:'center',opacity:rowIndex===0?0.3:1}, disabled:rowIndex===0, onClick:function(){moveItem(item.id,'up');}}, e(MoveUpIcon)),
                         e('button', {style:{background:'none',border:'1px solid #CBD5E1',borderRadius:6,padding:'4px 6px',cursor:'pointer',display:'flex',alignItems:'center',opacity:rowIndex===pageItems.length-1?0.3:1}, disabled:rowIndex===pageItems.length-1, onClick:function(){moveItem(item.id,'down');}}, e(MoveDownIcon)),
-                        e('div', {className:'drag-handle'}, e(DragIcon))
+                    
                       )
                     ),
                     e('td', null,
