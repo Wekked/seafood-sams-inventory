@@ -1242,11 +1242,11 @@ function MainApp(props) {
       )),
       e('div', {className:'form-row'},
         fg('Quantity on Hand', e('input', {className:'form-input', type:'number', min:0, step:0.5, value:newItem.quantity, onChange:function(ev){setNewItem(function(n){return Object.assign({},n,{quantity:ev.target.value});});}})),
-        fg('Quantity Unit', e('select', {className:'form-input', value:newItem.quantityUnit, onChange:function(ev){setNewItem(function(n){return Object.assign({},n,{quantityUnit:ev.target.value});});}}, e('option',{value:'CS'},'CS (Case)'), e('option',{value:'PK'},'PK (Pack)'), e('option',{value:'LB'},'LB (Pound)')))
+        fg('Quantity Unit', e('select', {className:'form-input', value:newItem.quantityUnit, onChange:function(ev){setNewItem(function(n){return Object.assign({},n,{quantityUnit:ev.target.value});});}}, e('option',{value:'CS'},'CS (Case)'), e('option',{value:'EA'},'EA (Each)'), e('option',{value:'LB'},'LB (Pound)')))
       ),
       e('div', {className:'form-row'},
         fg('Price', e('input', {className:'form-input', type:'number', min:0, step:0.01, value:newItem.price, onChange:function(ev){setNewItem(function(n){return Object.assign({},n,{price:ev.target.value});});}})),
-        fg('Price Unit', e('select', {className:'form-input', value:newItem.priceUnit, onChange:function(ev){setNewItem(function(n){return Object.assign({},n,{priceUnit:ev.target.value});});}}, e('option',{value:'CS'},'CS (Case)'), e('option',{value:'PK'},'PK (Pack)'), e('option',{value:'LB'},'LB (Pound)')))
+        fg('Price Unit', e('select', {className:'form-input', value:newItem.priceUnit, onChange:function(ev){setNewItem(function(n){return Object.assign({},n,{priceUnit:ev.target.value});});}}, e('option',{value:'CS'},'CS (Case)'), e('option',{value:'EA'},'EA (Each)'), e('option',{value:'LB'},'LB (Pound)')))
       )
     ),
 
@@ -1268,11 +1268,11 @@ function MainApp(props) {
       )),
       e('div', {className:'form-row'},
         fg('Quantity on Hand', e('input', {className:'form-input', type:'number', min:0, step:0.5, value:editItem.quantity, onChange:function(ev){setEditItem(function(n){return Object.assign({},n,{quantity:ev.target.value});});}})),
-        fg('Unit', e('select', {className:'form-input', value:editItem.quantityUnit, onChange:function(ev){setEditItem(function(n){return Object.assign({},n,{quantityUnit:ev.target.value});});}}, e('option',{value:'CS'},'CS'), e('option',{value:'PK'},'PK'), e('option',{value:'LB'},'LB')))
+        fg('Unit', e('select', {className:'form-input', value:editItem.quantityUnit, onChange:function(ev){setEditItem(function(n){return Object.assign({},n,{quantityUnit:ev.target.value});});}}, e('option',{value:'CS'},'CS'), e('option',{value:'EA'},'EA'), e('option',{value:'LB'},'LB')))
       ),
       e('div', {className:'form-row'},
         fg('Price', e('input', {className:'form-input', type:'number', min:0, step:0.01, value:editItem.price, onChange:function(ev){setEditItem(function(n){return Object.assign({},n,{price:ev.target.value});});}})),
-        fg('Price Unit', e('select', {className:'form-input', value:editItem.priceUnit, onChange:function(ev){setEditItem(function(n){return Object.assign({},n,{priceUnit:ev.target.value});});}}, e('option',{value:'CS'},'CS'), e('option',{value:'PK'},'PK'), e('option',{value:'LB'},'LB')))
+        fg('Price Unit', e('select', {className:'form-input', value:editItem.priceUnit, onChange:function(ev){setEditItem(function(n){return Object.assign({},n,{priceUnit:ev.target.value});});}}, e('option',{value:'CS'},'CS'), e('option',{value:'EA'},'EA'), e('option',{value:'LB'},'LB')))
       )
     ),
 
