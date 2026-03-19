@@ -975,7 +975,7 @@ function MainApp(props) {
           reorderMode && e('div', {className:'reorder-bar'},
             e('div', {className:'reorder-info'},
               e(InfoIcon),
-              'Drag items to match your physical walkthrough order for counting. This order is saved per location.'
+              'Change numeric order or use arrows to match your physical walkthrough order for counting. This order is saved per location.'
             ),
             e('div', {className:'reorder-actions'},
               e('button', {className:'btn btn-sm btn-primary', onClick: function(){ setReorderMode(false); }}, e(CheckCircleIcon), ' Done')
