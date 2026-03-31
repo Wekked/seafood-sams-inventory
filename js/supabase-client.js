@@ -55,24 +55,24 @@ var SupaDB = {
       .order('name', { ascending: true });
   },
 
-  saveQuantityChanges: function(changes, items) {
+saveQuantityChanges: function(changes, items) {
     var now = localDate();
-    var updates = Object.keys(changes).map(function(idStr) {
+    var ids = Object.keys(changes);
+    var promises = ids.map(function(idStr) {
       var id = parseInt(idStr);
       var item = items.find(function(i) { return i.id === id; });
       var newQty = changes[idStr];
       var newValue = Math.round(newQty * (item ? item.price : 0) * 100) / 100;
-      return {
-        id: id,
-        quantity: newQty,
-        total_value: newValue,
-        last_counted: now
-      };
+      return supabase
+        .from('items')
+        .update({ quantity: newQty, total_value: newValue, last_counted: now })
+        .eq('id', id);
     });
-
-    return supabase
-      .from('items')
-      .upsert(updates, { onConflict: 'id' });
+    return Promise.all(promises).then(function(results) {
+      var failed = results.find(function(r) { return r.error; });
+      if (failed) return { error: failed.error };
+      return { data: results, error: null };
+    });
   },
 
   addItem: function(item) {
