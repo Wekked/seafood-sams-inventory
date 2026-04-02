@@ -124,7 +124,7 @@ saveQuantityChanges: function(changes, items) {
     var now = localDate();
     return supabase
       .from('items')
-      .update({ last_counted: now, quantity: 0 })
+      .update({ last_counted: now })
       .neq('id', 0);
   },
 
