@@ -478,9 +478,22 @@ function MainApp(props) {
       }
     );
 
+// Reload fresh data when tab/app becomes visible again
+    function handleVisibility() {
+      if (document.visibilityState === 'visible' && SUPABASE_CONFIGURED) {
+        SupaDB.loadItems().then(function(result) {
+          if (!result.error && result.data) {
+            setItems(result.data.map(dbToItem));
+          }
+        });
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
+
     // Cleanup on unmount
     return function() {
       SupaDB.unsubscribe(channel);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
 
