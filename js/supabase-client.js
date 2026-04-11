@@ -104,6 +104,7 @@ saveQuantityChanges: function(changes, items) {
         price:          parseFloat(item.price) || 0,
         price_unit:     item.priceUnit,
         total_value:    (parseFloat(item.quantity) || 0) * (parseFloat(item.price) || 0),
+        qty_to_order: parseFloat(item.qtyToOrder) || 0,
         last_counted:   localDate()
       })
       .select()
@@ -124,11 +125,12 @@ saveQuantityChanges: function(changes, items) {
         quantity_unit:  item.quantityUnit,
         price:          price,
         price_unit:     item.priceUnit,
-        total_value:    Math.round(qty * price * 100) / 100
+        total_value:    Math.round(qty * price * 100) / 100,
+        qty_to_order:   parseFloat(item.qtyToOrder) || 0
       })
       .eq('id', item.id);
   },
-
+  
   deleteItem: function(id) {
     return supabase
       .from('items')
@@ -213,6 +215,7 @@ function dbToItem(row) {
     price:        row.price,
     priceUnit:    row.price_unit,
     totalValue:   row.total_value,
+    qtyToOrder:   row.qty_to_order || 0,
     lastCounted:  row.last_counted
   };
 }
