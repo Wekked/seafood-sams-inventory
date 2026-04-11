@@ -30,7 +30,7 @@
   <div id="root"></div>
 
   <!-- 1. Supabase client + connection config -->
-  <script src="js/supabase-client.js?v=7"></script>
+  <script src="js/supabase-client.js?v=8"></script>
 
   <!-- 2. Load local JSON as fallback, then boot app -->
   <script>
@@ -40,7 +40,7 @@
       .catch(function() { window.INITIAL_DATA = []; })
       .finally(function() {
         var script = document.createElement('script');
-        script.src = 'js/app.js?v=7';
+        script.src = 'js/app.js?v=8';
         document.body.appendChild(script);
       });
   </script>
