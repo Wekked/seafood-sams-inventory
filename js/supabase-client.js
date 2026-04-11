@@ -75,6 +75,22 @@ saveQuantityChanges: function(changes, items) {
     });
   },
 
+  saveOrderChanges: function(changes, items) {
+    var ids = Object.keys(changes);
+    var promises = ids.map(function(idStr) {
+      var id = parseInt(idStr);
+      return supabase
+        .from('items')
+        .update({ qty_to_order: changes[idStr] })
+        .eq('id', id);
+    });
+    return Promise.all(promises).then(function(results) {
+      var failed = results.find(function(r) { return r.error; });
+      if (failed) return { error: failed.error };
+      return { data: results, error: null };
+    });
+  },
+
   addItem: function(item) {
     return supabase
       .from('items')
