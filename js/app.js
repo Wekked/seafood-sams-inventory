@@ -400,7 +400,8 @@ function MainApp(props) {
   const [editItem, setEditItem] = useState(null);
   const [toast, setToast] = useState(null);
   const [changes, setChanges] = useState({});
-  const [newItem, setNewItem] = useState({name:'',itemNumber:'',category:'Food',location:'Cellar',supplier:'',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS'});
+  const [orderChanges, setOrderChanges] = useState({});
+  const [newItem, setNewItem] = useState({name:'',itemNumber:'',category:'Food',location:'Cellar',supplier:'',quantity:0,quantityUnit:'CS',price:0,priceUnit:'CS',qtyToOrder:0});
   const [reorderMode, setReorderMode] = useState(false);
   const [customOrders, setCustomOrders] = useState({});
   const [dragState, setDragState] = useState({draggingId:null, overId:null, overPos:null});
@@ -563,7 +564,7 @@ function MainApp(props) {
 
   const pageCount = Math.ceil(filtered.length / perPage);
   const pageItems = reorderMode ? filtered : filtered.slice((tablePage - 1) * perPage, tablePage * perPage);
-  const hasChanges = Object.keys(changes).length > 0;
+  const hasChanges = Object.keys(changes).length > 0 || Object.keys(orderChanges).length > 0;
 
   var handleSort = function(field) {
     if (sortField === field) setSortDir(function(d){return d==='asc'?'desc':'asc';});
@@ -581,36 +582,53 @@ function MainApp(props) {
     setChanges(function(c) { var n = Object.assign({}, c); n[id] = q; return n; });
   };
 
+  var updateOrderQty = function(id, newQty) {
+    var q = parseFloat(newQty);
+    if (isNaN(q) || q < 0) return;
+    setOrderChanges(function(c) { var n = Object.assign({}, c); n[id] = q; return n; });
+  };
+
   var saveChanges = function() {
-    var count = Object.keys(changes).length;
+    var qtyCount = Object.keys(changes).length;
+    var orderCount = Object.keys(orderChanges).length;
+    var totalCount = qtyCount + orderCount;
     var now = localDate();
 
     // Optimistic update: apply locally immediately
     setItems(function(prev) { return prev.map(function(item) {
+      var updated = {};
       if (changes[item.id] !== undefined) {
         var newQty = changes[item.id];
-        return Object.assign({}, item, {quantity:newQty, totalValue:Math.round(newQty*item.price*100)/100, lastCounted:now});
+        updated = {quantity:newQty, totalValue:Math.round(newQty*item.price*100)/100, lastCounted:now};
       }
-      return item;
+      if (orderChanges[item.id] !== undefined) {
+        updated.qtyToOrder = orderChanges[item.id];
+      }
+      return Object.keys(updated).length > 0 ? Object.assign({}, item, updated) : item;
     }); });
     setChanges({});
+    setOrderChanges({});
 
     // Persist to Supabase
     if (SUPABASE_CONFIGURED) {
-      SupaDB.saveQuantityChanges(changes, items).then(function(result) {
-        if (result.error) {
-          console.error('Save failed:', result.error);
+      var promises = [];
+      if (qtyCount > 0) promises.push(SupaDB.saveQuantityChanges(changes, items));
+      if (orderCount > 0) promises.push(SupaDB.saveOrderChanges(orderChanges, items));
+      Promise.all(promises).then(function(results) {
+        var failed = results.find(function(r) { return r.error; });
+        if (failed) {
+          console.error('Save failed:', failed.error);
           setToast({message:'Save failed — changes may not sync', type:'warning'});
         } else {
-          setToast({message:count+' item(s) saved & synced', type:'success'});
+          setToast({message:totalCount+' item(s) saved & synced', type:'success'});
         }
       });
     } else {
-      setToast({message:count+' item(s) updated (local only)', type:'success'});
+      setToast({message:totalCount+' item(s) updated (local only)', type:'success'});
     }
   };
 
-  var discardChanges = function() { setChanges({}); };
+  var discardChanges = function() { setChanges({}); setOrderChanges({}); };
 
   // ──── Drag & Drop Reorder ────
   var handleDragStart = function(itemId, ev) {
@@ -865,8 +883,8 @@ function MainApp(props) {
   };
 
   var exportCSV = function() {
-    var headers = ['Category','Item Number','Name','Location','Quantity','Unit','Price','Price Unit','Total Value','Last Counted'];
-    var rows = items.map(function(i){return [i.category,i.itemNumber,i.name,i.location,i.quantity,i.quantityUnit,i.price,i.priceUnit,i.totalValue,i.lastCounted];});
+    var headers = ['Category','Item Number','Name','Location','Quantity','Qty to Order','Unit','Price','Price Unit','Total Value','Last Counted'];
+    var rows = items.map(function(i){return [i.category,i.itemNumber,i.name,i.location,i.quantity,i.qtyToOrder,i.quantityUnit,i.price,i.priceUnit,i.totalValue,i.lastCounted];});
     var csv = [headers].concat(rows).map(function(r){return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
     var blob = new Blob([csv], {type:'text/csv'});
     var a = document.createElement('a');
@@ -1001,6 +1019,7 @@ function MainApp(props) {
                   reorderMode && e('th', {className:'th-reorder'}, '#'),
                   e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('name');}}, 'Item'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('name'))),
                   e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('quantity');}}, 'Qty on Hand'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('quantity'))),
+                  e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('qtyToOrder');}}, 'Qty to Order'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('qtyToOrder'))),
                   e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('category');}}, 'Category'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('category'))),
                   e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('location');}}, 'Location'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('location'))),
                   e('th', {className: isCustomOrderActive && !reorderMode ? 'sort-disabled' : '', onClick:function(){ if (!isCustomOrderActive || reorderMode) handleSort('price');}}, 'Price'+(isCustomOrderActive && !reorderMode ? '' : sortIcon('price'))),
@@ -1011,7 +1030,7 @@ function MainApp(props) {
               ),
               e('tbody', null,
                 pageItems.length === 0 ?
-                  e('tr', null, e('td', {colSpan:8}, e('div', {className:'empty-state'}, e('h3', null, 'No items found'), e('p', null, 'Try adjusting your search or filters'))))
+                  e('tr', null, e('td', {colSpan:9}, e('div', {className:'empty-state'}, e('h3', null, 'No items found'), e('p', null, 'Try adjusting your search or filters'))))
                 :
                 pageItems.map(function(item, rowIndex) {
                   var currentQty = changes[item.id] !== undefined ? changes[item.id] : item.quantity;
@@ -1043,6 +1062,12 @@ function MainApp(props) {
                     e('td', null,
                       e('div', {className:'qty-cell'},
                         e('input', {type:'number', className:'qty-input '+(changes[item.id]!==undefined?'changed':''), value:currentQty, onFocus:function(ev){ev.target.select();}, onChange:function(ev){updateQuantity(item.id,ev.target.value);}, min:0, step:0.5}),
+                        e('span', {className:'qty-unit'}, item.quantityUnit)
+                      )
+                    ),
+                    e('td', null,
+                      e('div', {className:'qty-cell'},
+                        e('input', {type:'number', className:'qty-input '+(orderChanges[item.id]!==undefined?'changed':''), value:orderChanges[item.id] !== undefined ? orderChanges[item.id] : item.qtyToOrder, onFocus:function(ev){ev.target.select();}, onChange:function(ev){updateOrderQty(item.id,ev.target.value);}, min:0, step:0.5}),
                         e('span', {className:'qty-unit'}, item.quantityUnit)
                       )
                     ),
@@ -1228,9 +1253,9 @@ function MainApp(props) {
       )
     ),
 
-    // Unsaved changes bar
+// Unsaved changes bar
     hasChanges && e('div', {className:'unsaved-bar'},
-      e('div', {className:'info'}, e('strong', null, Object.keys(changes).length+' unsaved change(s)'), ' \u2014 Quantity updates pending'),
+      e('div', {className:'info'}, e('strong', null, (Object.keys(changes).length + Object.keys(orderChanges).length)+' unsaved change(s)'), ' \u2014 Quantity updates pending'),
       e('div', {className:'actions'},
         e('button', {className:'btn btn-ghost', onClick:discardChanges}, 'Discard'),
         e('button', {className:'btn btn-primary', onClick:saveChanges}, 'Save All Changes')
