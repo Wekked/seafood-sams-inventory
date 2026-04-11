@@ -1042,7 +1042,7 @@ function MainApp(props) {
                     ),
                     e('td', null,
                       e('div', {className:'qty-cell'},
-                        e('input', {type:'number', className:'qty-input '+(changes[item.id]!==undefined?'changed':''), value:currentQty, onChange:function(ev){updateQuantity(item.id,ev.target.value);}, min:0, step:0.5}),
+                        e('input', {type:'number', className:'qty-input '+(changes[item.id]!==undefined?'changed':''), value:currentQty, onFocus:function(ev){ev.target.select();}, onChange:function(ev){updateQuantity(item.id,ev.target.value);}, min:0, step:0.5}),
                         e('span', {className:'qty-unit'}, item.quantityUnit)
                       )
                     ),
