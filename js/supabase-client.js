@@ -138,11 +138,11 @@ saveQuantityChanges: function(changes, items) {
       .eq('id', id);
   },
 
-  closeInventory: function() {
+closeInventory: function() {
     var now = localDate();
     return supabase
       .from('items')
-      .update({ last_counted: now })
+      .update({ last_counted: now, qty_to_order: 0 })
       .neq('id', 0);
   },
 
